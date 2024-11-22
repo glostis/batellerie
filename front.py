@@ -9,9 +9,9 @@ app = Flask(__name__)
 
 
 def fetch_all_the_things(ts_delta_minutes=15):
-    con = duckdb.connect("ais_data.db", read_only=True)
+    con = duckdb.connect("messages.db", read_only=True)
 
-    query_tracks = "SELECT MAX(ts) FROM ais_messages"
+    query_tracks = "SELECT MAX(ts) FROM messages"
     max_ts = con.execute(query_tracks).fetchone()[0]
 
     valid_latlon = "lat IS NOT NULL AND lon IS NOT NULL AND lat < 90 AND lat > -90 AND lon < 180 AND lon > -180"
@@ -20,7 +20,7 @@ def fetch_all_the_things(ts_delta_minutes=15):
     # Fetch all latest positions
     query_positions = f"""
         SELECT DISTINCT ON (mmsi) mmsi, ts, lat, lon, course, speed, status
-        FROM ais_messages
+        FROM messages
         WHERE
             {valid_latlon}
             AND ts::int >= {max_ts} - {ts_delta_minutes * 60}
@@ -32,7 +32,7 @@ def fetch_all_the_things(ts_delta_minutes=15):
     # Fetch all ship names in bulk
     query_shipnames = """
         SELECT DISTINCT ON (mmsi) mmsi, shipname
-        FROM ais_messages
+        FROM messages
         WHERE
         shipname IS NOT NULL
         ORDER BY mmsi, ts DESC;
@@ -50,7 +50,7 @@ def fetch_all_the_things(ts_delta_minutes=15):
             lat,
             lon
         FROM
-            ais_messages
+            messages
         WHERE
             {valid_latlon}
             AND ts::int >= {max_ts} - {ts_delta_minutes * 60}
@@ -81,4 +81,4 @@ def index():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0")

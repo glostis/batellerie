@@ -68,76 +68,78 @@ def store():
 
 def sync():
     p = Path(MESSAGES_PATH)
-
-    conn = duckdb.connect(DB_PATH)
     table = "messages"
-    conn.execute(f"""
-    CREATE TABLE IF NOT EXISTS {table} (
-        id UBIGINT,
-        msg_type UTINYINT,
-        repeat UTINYINT,
-        mmsi VARCHAR, -- Storing as varchar instead of integer, as it could include leading zeroes
-        status UTINYINT,
-        turn TINYINT,
-        speed DECIMAL(4, 1), -- max speed is 102.2 (and 102.3 which means unavailable)
-        accuracy BOOLEAN,
-        lon DOUBLE,
-        lat DOUBLE,
-        course DECIMAL(4, 1),
-        heading DECIMAL(4, 1),
-        second UTINYINT,
-        maneuver UTINYINT,
-        raim BOOLEAN,
-        radio INTEGER,
-        ts UBIGINT,
-        year USMALLINT,
-        month UTINYINT,
-        day UTINYINT,
-        hour UTINYINT,
-        minute UTINYINT,
-        epfd TINYINT,
-        seqno TINYINT,
-        dest_mmsi VARCHAR,
-        retransmit BOOLEAN,
-        dac USMALLINT,
-        fid USMALLINT,
-        ais_version UTINYINT,
-        imo VARCHAR,
-        callsign VARCHAR,
-        shipname VARCHAR,
-        ship_type UTINYINT,
-        to_bow SMALLINT,
-        to_stern SMALLINT,
-        to_port SMALLINT,
-        to_starboard SMALLINT,
-        draught DOUBLE,
-        destination VARCHAR,
-        dte BOOLEAN,
-        mmsi1 VARCHAR,
-        mmsiseq1 UTINYINT,
-        mmsi2 VARCHAR,
-        mmsiseq2 UTINYINT,
-        mmsi3 VARCHAR,
-        mmsiseq3 UTINYINT,
-        mmsi4 VARCHAR,
-        mmsiseq4 UTINYINT,
-        partno UTINYINT,
-        reserved_1 UTINYINT,
-        reserved_2 UTINYINT,
-        cs BOOLEAN,
-        display BOOLEAN,
-        dsc BOOLEAN,
-        band BOOLEAN,
-        msg22 BOOLEAN,
-        assigned BOOLEAN,
-        vendorid VARCHAR,
-        model UTINYINT,
-        serial INTEGER,
-        text VARCHAR
-    )
-    """)
+
+    with duckdb.connect(DB_PATH) as con:
+        con.execute(f"""
+            CREATE TABLE IF NOT EXISTS {table} (
+                id UBIGINT,
+                msg_type UTINYINT,
+                repeat UTINYINT,
+                mmsi VARCHAR, -- Storing as varchar instead of integer, as it could include leading zeroes
+                status UTINYINT,
+                turn TINYINT,
+                speed DECIMAL(4, 1), -- max speed is 102.2 (and 102.3 which means unavailable)
+                accuracy BOOLEAN,
+                lon DOUBLE,
+                lat DOUBLE,
+                course DECIMAL(4, 1),
+                heading DECIMAL(4, 1),
+                second UTINYINT,
+                maneuver UTINYINT,
+                raim BOOLEAN,
+                radio INTEGER,
+                ts UBIGINT,
+                year USMALLINT,
+                month UTINYINT,
+                day UTINYINT,
+                hour UTINYINT,
+                minute UTINYINT,
+                epfd TINYINT,
+                seqno TINYINT,
+                dest_mmsi VARCHAR,
+                retransmit BOOLEAN,
+                dac USMALLINT,
+                fid USMALLINT,
+                ais_version UTINYINT,
+                imo VARCHAR,
+                callsign VARCHAR,
+                shipname VARCHAR,
+                ship_type UTINYINT,
+                to_bow SMALLINT,
+                to_stern SMALLINT,
+                to_port SMALLINT,
+                to_starboard SMALLINT,
+                draught DOUBLE,
+                destination VARCHAR,
+                dte BOOLEAN,
+                mmsi1 VARCHAR,
+                mmsiseq1 UTINYINT,
+                mmsi2 VARCHAR,
+                mmsiseq2 UTINYINT,
+                mmsi3 VARCHAR,
+                mmsiseq3 UTINYINT,
+                mmsi4 VARCHAR,
+                mmsiseq4 UTINYINT,
+                partno UTINYINT,
+                reserved_1 UTINYINT,
+                reserved_2 UTINYINT,
+                cs BOOLEAN,
+                display BOOLEAN,
+                dsc BOOLEAN,
+                band BOOLEAN,
+                msg22 BOOLEAN,
+                assigned BOOLEAN,
+                vendorid VARCHAR,
+                model UTINYINT,
+                serial INTEGER,
+                text VARCHAR
+            )
+            """)
+
     while True:
-        max_id = conn.execute(f"SELECT MAX(id) FROM {table}").fetchone()[0] or 0
+        with duckdb.connect(DB_PATH) as con:
+            max_id = con.execute(f"SELECT MAX(id) FROM {table}").fetchone()[0] or 0
         parsed_messages = []
         for line in _reverse_readline(p):
             line = line.strip()
@@ -156,7 +158,8 @@ def sync():
         if parsed_messages:
             df = pd.DataFrame(parsed_messages)
             print(f"Inserting {len(df)} rows")
-            conn.execute(f"INSERT INTO {table} BY NAME SELECT * FROM df")
+            with duckdb.connect(DB_PATH) as con:
+                con.execute(f"INSERT INTO {table} BY NAME SELECT * FROM df")
 
         sleep(30)
 
