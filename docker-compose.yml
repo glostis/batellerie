@@ -1,14 +1,20 @@
 services:
-  ais:
+  store:
     image: ais
     build: ./
-    container_name: ais
     # ports:
     #   - 0.0.0.0:12345:12345
     network_mode: host
     volumes:
       - ./:/app/
-    command: python udp.py
+    command: python back.py store
+
+  sync:
+    image: ais
+    build: ./
+    volumes:
+      - ./:/app/
+    command: python back.py sync
 
 # networks:
 #   default:
