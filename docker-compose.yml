@@ -1,0 +1,16 @@
+services:
+  ais:
+    image: ais
+    build: ./
+    container_name: ais
+    # ports:
+    #   - 0.0.0.0:12345:12345
+    network_mode: host
+    volumes:
+      - ./:/app/
+    command: python udp.py
+
+# networks:
+#   default:
+#     external:
+#       name: nginx-proxy
