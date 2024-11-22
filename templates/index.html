@@ -42,45 +42,55 @@
         maxZoom: 18,
       }).addTo(map);
 
-      fetch("/data")
-        .then((response) => response.json())
-        .then((response) => {
-          const { positions, tracks, latestTs } = response;
+      // Layer group to manage map layers
+      const layerGroup = L.layerGroup().addTo(map);
 
-          // Update the timestamp display
-          const timestampDiv = document.getElementById("timestamp");
-          const minutesAgo = Math.floor(
-            (Date.now() - latestTs * 1000) / 1000 / 60,
-          );
-          timestampDiv.innerText = `Latest ping: ${minutesAgo} minutes ago`;
+      async function updateMap() {
+        fetch("/data")
+          .then((response) => response.json())
+          .then((response) => {
+            const { positions, tracks, latestTs } = response;
 
-          positions.forEach((item) => {
-            const {
-              mmsi,
-              lat,
-              lon,
-              ts,
-              course,
-              speed,
-              status,
-              shipname,
-              color,
-            } = item;
+            // Clear the existing layers
+            layerGroup.clearLayers();
 
-            const shipMarker =
-              course == null || speed == 0
-                ? L.circleMarker([lat, lon], {
-                    radius: 5,
-                    fillColor: "#F8591F",
-                    color: "#F8591F",
-                    weight: 1,
-                    opacity: 1,
-                    fillOpacity: 0.8,
-                  })
-                : L.marker([lat, lon], {
-                    icon: L.divIcon({
-                      className: "arrow-icon",
-                      html: `
+            // Update the timestamp display
+            const timestampDiv = document.getElementById("timestamp");
+            const minutesAgo = Math.floor(
+              (Date.now() - latestTs * 1000) / 1000 / 60,
+            );
+            const dt = new Date(latestTs * 1000);
+            const pingHours = dt.getHours();
+            const pingMinutes = dt.getMinutes();
+            timestampDiv.innerText = `Latest ping: ${pingHours}:${pingMinutes < 10 ? "0" : ""}${pingMinutes} (${minutesAgo} minutes ago)`;
+
+            positions.forEach((item) => {
+              const {
+                mmsi,
+                lat,
+                lon,
+                ts,
+                course,
+                speed,
+                status,
+                shipname,
+                color,
+              } = item;
+
+              const shipMarker =
+                course == null || speed == 0
+                  ? L.circleMarker([lat, lon], {
+                      radius: 5,
+                      fillColor: "#F8591F",
+                      color: "#F8591F",
+                      weight: 1,
+                      opacity: 1,
+                      fillOpacity: 0.8,
+                    })
+                  : L.marker([lat, lon], {
+                      icon: L.divIcon({
+                        className: "arrow-icon",
+                        html: `
                         <div style="transform: rotate(${course || 0}deg);">
                           <svg
                             version="1.0"
@@ -104,47 +114,54 @@
                           </svg>
                         </div>
                       `,
-                      iconSize: [20, 20],
-                      tooltipAnchor: [-10, 0],
-                    }),
-                  });
+                        iconSize: [20, 20],
+                        tooltipAnchor: [-10, 0],
+                      }),
+                    });
 
-            shipMarker
-              .addTo(map)
-              .bindPopup(
-                `<b>${shipname || "Undefined name"}</b><br/>MMSI: ${mmsi}<br/>Speed: ${speed || "?"}kts<br/>${status}<br/>${Math.floor((Date.now() - ts * 1000) / 1000 / 60)} minutes ago`,
-              );
-            if (shipname) {
               shipMarker
-                .bindTooltip(`${shipname}`, {
-                  permanent: true,
-                  direction: "left",
-                })
-                .openTooltip();
-            }
-          });
+                .addTo(layerGroup)
+                .bindPopup(
+                  `<b>${shipname || "Undefined name"}</b><br/>MMSI: ${mmsi}<br/>Speed: ${speed || "?"}kts<br/>${status}<br/>${Math.floor((Date.now() - ts * 1000) / 1000 / 60)} minutes ago`,
+                );
+              if (shipname) {
+                shipMarker
+                  .bindTooltip(`${shipname}`, {
+                    permanent: true,
+                    direction: "left",
+                  })
+                  .openTooltip();
+              }
+            });
 
-          // Iterate over each MMSI
-          Object.keys(tracks).forEach((mmsi) => {
-            const coordinates = tracks[mmsi]; // List of (lat, lon) tuples
+            // Iterate over each MMSI
+            Object.keys(tracks).forEach((mmsi) => {
+              const coordinates = tracks[mmsi]; // List of (lat, lon) tuples
 
-            // Convert to Leaflet-compatible format
-            const latLngs = coordinates.map(([lat, lon]) => [lat, lon]);
+              // Convert to Leaflet-compatible format
+              const latLngs = coordinates.map(([lat, lon]) => [lat, lon]);
 
-            // Create a polyline for the MMSI
-            for (let i = 0; i < latLngs.length - 1; i++) {
-              const opacity = 1 - i / (latLngs.length - 1);
+              // Create a polyline for the MMSI
+              for (let i = 0; i < latLngs.length - 1; i++) {
+                const opacity = 1 - i / (latLngs.length - 1);
 
-              // Create a segment from point i to point i+1
-              const segment = L.polyline([latLngs[i], latLngs[i + 1]], {
-                color: "#F8591F",
-                weight: 3,
-                opacity: opacity,
-              }).addTo(map);
-            }
-          });
-        })
-        .catch((error) => console.error("Error fetching data:", error));
+                // Create a segment from point i to point i+1
+                const segment = L.polyline([latLngs[i], latLngs[i + 1]], {
+                  color: "#F8591F",
+                  weight: 3,
+                  opacity: opacity,
+                }).addTo(layerGroup);
+              }
+            });
+          })
+          .catch((error) => console.error("Error fetching data:", error));
+      }
+
+      // Initial map update
+      updateMap();
+
+      // Refresh map every 10 seconds
+      setInterval(updateMap, 10000);
     </script>
   </body>
 </html>
