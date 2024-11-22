@@ -26,7 +26,7 @@ def read_n_to_last_line(filename, n=1):
 
 
 def main():
-    p = Path("./messages.txt.log")
+    p = Path("./messages.txt")
     p.touch()
     last_line = read_n_to_last_line(p)
     if last_line:
@@ -36,7 +36,7 @@ def main():
     current_id = last_id + 1
     for msg in UDPReceiver(host, port):
         print(int(time()))
-        with open("messages.txt.log", "a") as f:
+        with open("messages.txt", "a") as f:
             f.write(f"{current_id} {int(time())} {msg.raw}\n")
         current_id += 1
 
