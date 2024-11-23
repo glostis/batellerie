@@ -39,6 +39,9 @@ def fetch_all_the_things(ts_delta_minutes=15):
     """
     shipnames = pd.read_sql(query_shipnames, con)
 
+    # Remove shipname from persistent static emitter STATION FLUV GUERDIN
+    shipnames.loc[shipnames.mmsi == '226015750', 'shipname'] = None
+
     # Merge ship names into the positions DataFrame
     latest_positions = latest_positions.merge(shipnames, on="mmsi", how="left")
 

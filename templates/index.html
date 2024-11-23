@@ -9,10 +9,20 @@
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
     />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/protomaps-leaflet@latest/dist/protomaps-leaflet.js"></script>
+    <script src="https://api.mapbox.com/mapbox.js/plugins/leaflet-fullscreen/v1.0.1/Leaflet.fullscreen.min.js"></script>
+    <link
+      href="https://api.mapbox.com/mapbox.js/plugins/leaflet-fullscreen/v1.0.1/leaflet.fullscreen.css"
+      rel="stylesheet"
+    />
     <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
       #map {
-        height: 100vh;
-        width: 100%;
+        height: 100%;
       }
 
       /* Empty CSS class to wipe any default icon styling */
@@ -38,9 +48,13 @@
     <script>
       const map = L.map("map").setView([49.44, 2.83], 12);
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 18,
-      }).addTo(map);
+      var layer = protomapsL.leafletLayer({
+        url: "static/map.pmtiles",
+        theme: "dark",
+      });
+      layer.addTo(map);
+
+      map.addControl(new L.Control.Fullscreen());
 
       // Layer group to manage map layers
       const layerGroup = L.layerGroup().addTo(map);
@@ -64,6 +78,27 @@
             const pingMinutes = dt.getMinutes();
             timestampDiv.innerText = `Latest ping: ${pingHours}:${pingMinutes < 10 ? "0" : ""}${pingMinutes} (${minutesAgo} minutes ago)`;
 
+            // Add ship tracks
+            Object.keys(tracks).forEach((mmsi) => {
+              const coordinates = tracks[mmsi]; // List of (lat, lon) tuples
+
+              // Convert to Leaflet-compatible format
+              const latLngs = coordinates.map(([lat, lon]) => [lat, lon]);
+
+              // Create a polyline for the MMSI
+              for (let i = 0; i < latLngs.length - 1; i++) {
+                const opacity = 1 - i / (latLngs.length - 1);
+
+                // Create a segment from point i to point i+1
+                const segment = L.polyline([latLngs[i], latLngs[i + 1]], {
+                  color: "#F8591F",
+                  weight: 3,
+                  opacity: opacity,
+                }).addTo(layerGroup);
+              }
+            });
+
+            // Add ship positions
             positions.forEach((item) => {
               const {
                 mmsi,
@@ -133,26 +168,6 @@
                   .openTooltip();
               }
             });
-
-            // Iterate over each MMSI
-            Object.keys(tracks).forEach((mmsi) => {
-              const coordinates = tracks[mmsi]; // List of (lat, lon) tuples
-
-              // Convert to Leaflet-compatible format
-              const latLngs = coordinates.map(([lat, lon]) => [lat, lon]);
-
-              // Create a polyline for the MMSI
-              for (let i = 0; i < latLngs.length - 1; i++) {
-                const opacity = 1 - i / (latLngs.length - 1);
-
-                // Create a segment from point i to point i+1
-                const segment = L.polyline([latLngs[i], latLngs[i + 1]], {
-                  color: "#F8591F",
-                  weight: 3,
-                  opacity: opacity,
-                }).addTo(layerGroup);
-              }
-            });
           })
           .catch((error) => console.error("Error fetching data:", error));
       }
@@ -160,8 +175,8 @@
       // Initial map update
       updateMap();
 
-      // Refresh map every 10 seconds
-      setInterval(updateMap, 10000);
+      // Refresh map every 30 seconds
+      setInterval(updateMap, 30000);
     </script>
   </body>
 </html>
