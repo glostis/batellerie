@@ -48,13 +48,52 @@
     <script>
       const map = L.map("map").setView([49.44, 2.83], 12);
 
-      var layer = protomapsL.leafletLayer({
-        url: "static/map.pmtiles",
-        theme: "dark",
-      });
-      layer.addTo(map);
-
       map.addControl(new L.Control.Fullscreen());
+      // Function to create a Protomaps layer with a given theme
+      function createProtomapsLayer(theme) {
+        return protomapsL.leafletLayer({
+          url: "static/map.pmtiles",
+          theme: theme,
+        });
+      }
+
+      // Initialize the map with the dark theme or last stored theme
+      const savedTheme = localStorage.getItem("mapTheme") || "dark";
+      let currentTheme = savedTheme;
+      let protomapLayer = createProtomapsLayer(currentTheme);
+      protomapLayer.addTo(map);
+
+      // Custom control for theme toggle
+      const toggleControl = L.control({ position: "topleft" });
+
+      toggleControl.onAdd = function () {
+        const div = L.DomUtil.create("div", "leaflet-bar");
+        const button = L.DomUtil.create("a", "", div);
+        button.href = "#";
+        button.title = "Toggle Light/Dark Theme";
+        button.innerHTML = "🌓"; // Toggle icon
+        button.style.cursor = "pointer";
+
+        L.DomEvent.on(button, "click", function (e) {
+          L.DomEvent.preventDefault(e);
+
+          // Toggle the theme
+          currentTheme = currentTheme === "dark" ? "light" : "dark";
+          localStorage.setItem("mapTheme", currentTheme);
+
+          // Remove the existing layer
+          map.removeLayer(protomapLayer);
+
+          // Add a new layer with the updated theme
+          protomapLayer = createProtomapsLayer(currentTheme);
+          protomapLayer.addTo(map);
+        });
+
+        return div;
+      };
+
+      // Add the toggle button to the map
+      toggleControl.addTo(map);
 
       // Layer group to manage map layers
       const layerGroup = L.layerGroup().addTo(map);
