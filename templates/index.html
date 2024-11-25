@@ -9,7 +9,7 @@
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
     />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/protomaps-leaflet@latest/dist/protomaps-leaflet.js"></script>
+    <script src="https://unpkg.com/protomaps-leaflet@4.0.1/dist/protomaps-leaflet.js"></script>
     <script src="https://api.mapbox.com/mapbox.js/plugins/leaflet-fullscreen/v1.0.1/Leaflet.fullscreen.min.js"></script>
     <link
       href="https://api.mapbox.com/mapbox.js/plugins/leaflet-fullscreen/v1.0.1/leaflet.fullscreen.css"
@@ -40,11 +40,23 @@
         box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.2);
         z-index: 1000;
       }
+
+      #datetime-form {
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        z-index: 1000;
+      }
     </style>
   </head>
   <body>
     <div id="map"></div>
     <div id="timestamp">Loading latest timestamp...</div>
+    <form id="datetime-form">
+      <!-- <label for="datetime">Select Date and Time:</label> -->
+      <input type="datetime-local" id="datetime" required />
+    </form>
+    <script type="module" src="static/datetime-picker.js"></script>
     <script type="module" src="static/main.js"></script>
   </body>
 </html>

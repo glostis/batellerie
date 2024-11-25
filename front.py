@@ -3,21 +3,29 @@ import os
 
 import duckdb
 import pandas as pd
-from flask import Flask, Response, render_template
+from flask import Flask, Response, render_template, request
 from pyais.constants import NavigationStatus
 
 app = Flask(__name__)
 
 
-def fetch_all_the_things(ts_delta_minutes=15):
+def fetch_all_the_things(ts_max: str | None = None, ts_delta_minutes: int = 15):
+    """Fetch the required data (positions, tracks, shipnames) from the database.
+
+    Args:
+        - ts_max: The maximum timestamp until which positions and tracks are taken.
+            If None is given, will take the most recent.
+        - ts_delta_minutes: The timedelta before `ts_max` until which latest positions and tracks are taken.
+    """
     con = duckdb.connect("messages.db", read_only=True)
 
-    query_tracks = "SELECT MAX(ts) FROM messages"
-    max_ts = con.execute(query_tracks).fetchone()[0]
+    if ts_max is None:
+        query_tracks = "SELECT MAX(ts) FROM messages"
+        ts_max = con.execute(query_tracks).fetchone()[0]
 
     valid_latlon = "lat IS NOT NULL AND lon IS NOT NULL AND lat < 90 AND lat > -90 AND lon < 180 AND lon > -180"
 
-    # Fetch all latest positions
+    # Fetch latest positions
     # https://duckdb.org/docs/sql/query_syntax/select.html#distinct-on-clause
     # The first 3 digits of the MMSI are the Maritime Identification Digits, which give the country
     # of registration of the ship (https://www.itu.int/en/itu-r/terrestrial/fmd/pages/mid.aspx)
@@ -26,13 +34,14 @@ def fetch_all_the_things(ts_delta_minutes=15):
         FROM messages
         WHERE
             {valid_latlon}
-            AND ts::int >= {max_ts} - {ts_delta_minutes * 60}
+            AND ts::int >= {ts_max} - {ts_delta_minutes * 60}
+            AND ts::int <= {ts_max}
         ORDER BY mmsi, ts DESC;
     """
     latest_positions = pd.read_sql(query_positions, con)
     latest_positions["status"] = latest_positions.status.apply(lambda status: NavigationStatus.from_value(status).name)
 
-    # Fetch all ship names in bulk
+    # Fetch ship names
     query_shipnames = """
         SELECT DISTINCT ON (mmsi) mmsi, shipname
         FROM messages
@@ -59,7 +68,8 @@ def fetch_all_the_things(ts_delta_minutes=15):
             messages
         WHERE
             {valid_latlon}
-            AND ts::int >= {max_ts} - {ts_delta_minutes * 60}
+            AND ts::int >= {ts_max} - {ts_delta_minutes * 60}
+            AND ts::int <= {ts_max}
         ORDER BY
             ts DESC;
     """
@@ -72,13 +82,15 @@ def fetch_all_the_things(ts_delta_minutes=15):
     return {
         "positions": json.loads(latest_positions.to_json(orient="records")),
         "tracks": json.loads(latest_tracks),
-        "latestTs": max_ts,
+        "latestTs": ts_max,
     }
 
 
 @app.route("/data")
 def data() -> Response:
-    return Response(json.dumps(fetch_all_the_things()), mimetype="application/json")
+    ts_max = request.args.get("tsMax", None)
+    ts_delta_minutes = int(request.args.get("tsDeltaMinutes", 15))
+    return Response(json.dumps(fetch_all_the_things(ts_max, ts_delta_minutes)), mimetype="application/json")
 
 
 @app.route("/")

@@ -1,4 +1,4 @@
-import { midToFlag } from './flags.js';
+import { midToFlag } from "./flags.js";
 
 // ##################
 // Map initialisation
@@ -47,7 +47,6 @@ toggleControl.onAdd = function () {
 };
 toggleControl.addTo(map);
 
-
 // ####################
 // Load data to the map
 // ####################
@@ -55,8 +54,9 @@ toggleControl.addTo(map);
 // Layer group to which markers and lines are added, to ease refreshing the data
 const layerGroup = L.layerGroup().addTo(map);
 
-async function updateMap() {
-  fetch("/data")
+export async function updateMap(tsMax) {
+  const apiRoute = tsMax !== undefined ? `/data?tsMax=${tsMax}` : `/data`;
+  fetch(`${apiRoute}`)
     .then((response) => response.json())
     .then((response) => {
       const { positions, tracks, latestTs } = response;
@@ -165,4 +165,4 @@ async function updateMap() {
 updateMap();
 
 // Refresh map every 30 seconds
-setInterval(updateMap, 30000);
+export const intervalId = setInterval(updateMap, 30000);
