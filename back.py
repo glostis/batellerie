@@ -1,7 +1,7 @@
 import os
 import sys
 from pathlib import Path
-from time import time, sleep
+from time import sleep, time
 
 import duckdb
 import pandas as pd

@@ -1,4 +1,5 @@
 import json
+import os
 
 import duckdb
 import pandas as pd
@@ -16,10 +17,12 @@ def fetch_all_the_things(ts_delta_minutes=15):
 
     valid_latlon = "lat IS NOT NULL AND lon IS NOT NULL AND lat < 90 AND lat > -90 AND lon < 180 AND lon > -180"
 
-    # https://duckdb.org/docs/sql/query_syntax/select.html#distinct-on-clause
     # Fetch all latest positions
+    # https://duckdb.org/docs/sql/query_syntax/select.html#distinct-on-clause
+    # The first 3 digits of the MMSI are the Maritime Identification Digits, which give the country
+    # of registration of the ship (https://www.itu.int/en/itu-r/terrestrial/fmd/pages/mid.aspx)
     query_positions = f"""
-        SELECT DISTINCT ON (mmsi) mmsi, ts, lat, lon, course, speed, status
+        SELECT DISTINCT ON (mmsi) mmsi, ts, lat, lon, course, speed, status, substr(mmsi, 1, 3) as mid
         FROM messages
         WHERE
             {valid_latlon}
@@ -40,7 +43,7 @@ def fetch_all_the_things(ts_delta_minutes=15):
     shipnames = pd.read_sql(query_shipnames, con)
 
     # Remove shipname from persistent static emitter STATION FLUV GUERDIN
-    shipnames.loc[shipnames.mmsi == '226015750', 'shipname'] = None
+    shipnames.loc[shipnames.mmsi == "226015750", "shipname"] = None
 
     # Merge ship names into the positions DataFrame
     latest_positions = latest_positions.merge(shipnames, on="mmsi", how="left")
@@ -84,4 +87,4 @@ def index():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0")
+    app.run(host="0.0.0.0", debug=bool(os.getenv("DEBUG", False)))

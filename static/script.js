@@ -1,23 +1,25 @@
+import { midToFlag } from './flags.js';
+
+// ##################
+// Map initialisation
+// ##################
 const map = L.map("map").setView([49.44, 2.83], 12);
 
 map.addControl(new L.Control.Fullscreen());
-// Function to create a Protomaps layer with a given theme
+
+// Load protomaps basemap and handle theme
 function createProtomapsLayer(theme) {
   return protomapsL.leafletLayer({
     url: "static/map.pmtiles",
     theme: theme,
   });
 }
-
-// Initialize the map with the dark theme or last stored theme
-const savedTheme = localStorage.getItem("mapTheme") || "dark";
+const savedTheme = localStorage.getItem("mapTheme") || "light";
 let currentTheme = savedTheme;
 let protomapLayer = createProtomapsLayer(currentTheme);
 protomapLayer.addTo(map);
 
-// Custom control for theme toggle
 const toggleControl = L.control({ position: "topleft" });
-
 toggleControl.onAdd = function () {
   const div = L.DomUtil.create("div", "leaflet-bar");
   const button = L.DomUtil.create("a", "", div);
@@ -43,11 +45,14 @@ toggleControl.onAdd = function () {
 
   return div;
 };
-
-// Add the toggle button to the map
 toggleControl.addTo(map);
 
-// Layer group to manage map layers
+
+// ####################
+// Load data to the map
+// ####################
+
+// Layer group to which markers and lines are added, to ease refreshing the data
 const layerGroup = L.layerGroup().addTo(map);
 
 async function updateMap() {
@@ -89,7 +94,7 @@ async function updateMap() {
 
       // Add ship positions
       positions.forEach((item) => {
-        const { mmsi, lat, lon, ts, course, speed, status, shipname, color } =
+        const { mmsi, lat, lon, ts, course, speed, status, shipname, mid } =
           item;
 
         const shipMarker =
@@ -117,7 +122,7 @@ async function updateMap() {
                           >
                             <g
                               transform="matrix(-0.1,0,0,0.1,1280.0495,0.09709988)"
-                              fill="${color || "#F8591F"}"
+                              fill="#F8591F"
                               stroke="none"
                               id="g1"
                             >
@@ -136,7 +141,7 @@ async function updateMap() {
 
         shipMarker.addTo(layerGroup).bindPopup(
           `
-                <b>${shipname || "Undefined name"}</b><br/>
+                <b>${midToFlag(mid)} ${shipname || "Undefined name"}</b><br/>
                 MMSI: <a href="https://www.marinetraffic.com/en/ais/details/ships/mmsi:${mmsi}" target="_blank" rel="noopener noreferrer">${mmsi}</a><br/>
                 Speed: ${speed || "?"}kts<br/>
                 ${status}<br/>
@@ -145,7 +150,7 @@ async function updateMap() {
         );
         if (shipname) {
           shipMarker
-            .bindTooltip(`${shipname}`, {
+            .bindTooltip(`${midToFlag(mid)} ${shipname}`, {
               permanent: true,
               direction: "left",
             })
