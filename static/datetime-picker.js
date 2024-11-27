@@ -1,9 +1,8 @@
-import { updateMap, intervalId } from "./main.js";
+import { updateMap, timestampWayback } from "./main.js";
 
 document
   .getElementById("datetime")
   .addEventListener("change", async (event) => {
-
     // Get the input value
     const datetimeInput = document.getElementById("datetime").value;
 
@@ -15,6 +14,6 @@ document
       return;
     }
 
-    clearInterval(intervalId);
-    updateMap(epochTimestamp);
+    updateMap(epochTimestamp, false);
+    timestampWayback(epochTimestamp);
   });

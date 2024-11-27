@@ -19,9 +19,9 @@ let currentTheme = savedTheme;
 let protomapLayer = createProtomapsLayer(currentTheme);
 protomapLayer.addTo(map);
 
-const toggleControl = L.control({ position: "topleft" });
-toggleControl.onAdd = function () {
-  const div = L.DomUtil.create("div", "leaflet-bar");
+const themeToggleControl = L.control({ position: "topleft" });
+themeToggleControl.onAdd = function () {
+  const div = L.DomUtil.create("div", "leaflet-bar leaflet-control");
   const button = L.DomUtil.create("a", "", div);
   button.href = "#";
   button.title = "Toggle Light/Dark Theme";
@@ -45,7 +45,50 @@ toggleControl.onAdd = function () {
 
   return div;
 };
-toggleControl.addTo(map);
+themeToggleControl.addTo(map);
+
+let waybackMode = false;
+const waybackToggleControl = L.control({ position: "topleft" });
+waybackToggleControl.onAdd = function () {
+  const div = L.DomUtil.create("div", "leaflet-bar leaflet-control");
+
+  // Toggle Button
+  const button = L.DomUtil.create("a", "", div);
+  button.href = "#";
+  button.id = "wayback-button";
+  button.title = "Wayback machine";
+  button.style.cursor = "pointer";
+
+  L.DomEvent.on(button, "click", function (e) {
+    L.DomEvent.preventDefault(e);
+
+    // Toggle the wayback mode
+    waybackMode = waybackMode === false ? true : false;
+
+    if (waybackMode == true) {
+      document.getElementById("datetime").style.display = "block";
+      clearInterval(intervalId);
+    } else {
+      document.getElementById("datetime").style.display = "none";
+      updateMap();
+      intervalId = setInterval(updateMap, 30000);
+      const timestampDiv = document.getElementById("timestamp");
+    }
+  });
+  return div;
+};
+waybackToggleControl.addTo(map);
+
+const waybackDatetimePicker = L.control({ position: "topleft" });
+waybackDatetimePicker.onAdd = function () {
+  const div = L.DomUtil.create("div", "leaflet-bar leaflet-control");
+  const datetimePicker = L.DomUtil.create("input", "", div);
+  datetimePicker.type = "datetime-local";
+  datetimePicker.id = "datetime";
+  datetimePicker.style.display = "none";
+  return div;
+};
+waybackDatetimePicker.addTo(map);
 
 // ####################
 // Load data to the map
@@ -54,7 +97,31 @@ toggleControl.addTo(map);
 // Layer group to which markers and lines are added, to ease refreshing the data
 const layerGroup = L.layerGroup().addTo(map);
 
-export async function updateMap(tsMax) {
+async function timestampLive(latestTs) {
+  const timestampDiv = document.getElementById("timestamp");
+  const minutesAgo = Math.floor((Date.now() - latestTs * 1000) / 1000 / 60);
+  const dt = new Date(latestTs * 1000);
+  const pingHours = dt.getHours();
+  const pingMinutes = dt.getMinutes();
+  timestampDiv.innerText = `Latest ping: ${pingHours}:${pingMinutes < 10 ? "0" : ""}${pingMinutes} (${minutesAgo} minutes ago)`;
+}
+
+function dateToString(date) {
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1; // Months are zero-based in JavaScript
+  const day = date.getDate();
+  const hours = date.getHours();
+  const minutes = date.getMinutes();
+  return `${year}-${month}-${day} ${hours}:${minutes}`;
+}
+
+export async function timestampWayback(ts) {
+  const timestampDiv = document.getElementById("timestamp");
+  const date = new Date(ts * 1000);
+  timestampDiv.innerText = `Browsing data at ${dateToString(date)}`;
+}
+
+export async function updateMap(tsMax, live = true) {
   const apiRoute = tsMax !== undefined ? `/data?tsMax=${tsMax}` : `/data`;
   fetch(`${apiRoute}`)
     .then((response) => response.json())
@@ -65,12 +132,9 @@ export async function updateMap(tsMax) {
       layerGroup.clearLayers();
 
       // Update the timestamp display
-      const timestampDiv = document.getElementById("timestamp");
-      const minutesAgo = Math.floor((Date.now() - latestTs * 1000) / 1000 / 60);
-      const dt = new Date(latestTs * 1000);
-      const pingHours = dt.getHours();
-      const pingMinutes = dt.getMinutes();
-      timestampDiv.innerText = `Latest ping: ${pingHours}:${pingMinutes < 10 ? "0" : ""}${pingMinutes} (${minutesAgo} minutes ago)`;
+      if (live == true) {
+        timestampLive(latestTs);
+      }
 
       // Add ship tracks
       Object.keys(tracks).forEach((mmsi) => {
@@ -139,15 +203,23 @@ export async function updateMap(tsMax) {
                 }),
               });
 
-        shipMarker.addTo(layerGroup).bindPopup(
-          `
-                <b>${midToFlag(mid)} ${shipname || "Undefined name"}</b><br/>
-                MMSI: <a href="https://www.marinetraffic.com/en/ais/details/ships/mmsi:${mmsi}" target="_blank" rel="noopener noreferrer">${mmsi}</a><br/>
-                Speed: ${speed || "?"}kts<br/>
-                ${status}<br/>
-                ${Math.floor((Date.now() - ts * 1000) / 1000 / 60)} minutes ago
-                `,
-        );
+        let popupText = `
+          <b>${midToFlag(mid)} ${shipname || "Undefined name"}</b><br/>
+          MMSI: <a href="https://www.marinetraffic.com/en/ais/details/ships/mmsi:${mmsi}" target="_blank" rel="noopener noreferrer">${mmsi}</a><br/>
+          Speed: ${speed || "?"}kts<br/>
+          ${status}<br/>
+        `;
+
+        if (live == true) {
+          popupText =
+            popupText +
+            `${Math.floor((Date.now() - ts * 1000) / 1000 / 60)} minutes ago`;
+        } else {
+          const dt = new Date(ts * 1000);
+          popupText = popupText + `${dateToString(dt)}`;
+        }
+
+        shipMarker.addTo(layerGroup).bindPopup(popupText);
         if (shipname) {
           shipMarker
             .bindTooltip(`${midToFlag(mid)} ${shipname}`, {
@@ -165,4 +237,4 @@ export async function updateMap(tsMax) {
 updateMap();
 
 // Refresh map every 30 seconds
-export const intervalId = setInterval(updateMap, 30000);
+let intervalId = setInterval(updateMap, 30000);

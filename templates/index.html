@@ -41,21 +41,19 @@
         z-index: 1000;
       }
 
-      #datetime-form {
-        position: absolute;
-        bottom: 10px;
-        left: 10px;
-        z-index: 1000;
+      #wayback-button {
+        display: block; /* Ensure the link can have a background */
+        background-image: url("static/wayback.svg");
+        background-size: 75% 75%;
+        background-position: center;
+        background-repeat: no-repeat;
+        text-decoration: none; /* Remove underline */
       }
     </style>
   </head>
   <body>
     <div id="map"></div>
     <div id="timestamp">Loading latest timestamp...</div>
-    <form id="datetime-form">
-      <!-- <label for="datetime">Select Date and Time:</label> -->
-      <input type="datetime-local" id="datetime" required />
-    </form>
     <script type="module" src="static/datetime-picker.js"></script>
     <script type="module" src="static/main.js"></script>
   </body>
