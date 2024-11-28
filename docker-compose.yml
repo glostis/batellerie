@@ -20,7 +20,7 @@ services:
     image: batellerie
     build: ./
     ports:
-        - 8080:5000
+        - 8082:5000
     volumes:
       - ./data:/data/
     command: python -m batellerie.front
