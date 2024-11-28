@@ -6,6 +6,8 @@ import pandas as pd
 from flask import Flask, Response, render_template, request
 from pyais.constants import NavigationStatus
 
+from batellerie import TABLE_NAME
+
 app = Flask(__name__)
 
 
@@ -20,7 +22,7 @@ def fetch_all_the_things(ts_max: str | None = None, ts_delta_minutes: int = 15):
     con = duckdb.connect("messages.db", read_only=True)
 
     if ts_max is None:
-        query_tracks = "SELECT MAX(ts) FROM messages"
+        query_tracks = f"SELECT MAX(ts) FROM {TABLE_NAME}"
         ts_max = con.execute(query_tracks).fetchone()[0]
 
     valid_latlon = "lat IS NOT NULL AND lon IS NOT NULL AND lat < 90 AND lat > -90 AND lon < 180 AND lon > -180"
@@ -31,7 +33,7 @@ def fetch_all_the_things(ts_max: str | None = None, ts_delta_minutes: int = 15):
     # of registration of the ship (https://www.itu.int/en/itu-r/terrestrial/fmd/pages/mid.aspx)
     query_positions = f"""
         SELECT DISTINCT ON (mmsi) mmsi, ts, lat, lon, course, speed, status, substr(mmsi, 1, 3) as mid
-        FROM messages
+        FROM {TABLE_NAME}
         WHERE
             {valid_latlon}
             AND ts::int >= {ts_max} - {ts_delta_minutes * 60}
@@ -42,9 +44,9 @@ def fetch_all_the_things(ts_max: str | None = None, ts_delta_minutes: int = 15):
     latest_positions["status"] = latest_positions.status.apply(lambda status: NavigationStatus.from_value(status).name)
 
     # Fetch ship names
-    query_shipnames = """
+    query_shipnames = f"""
         SELECT DISTINCT ON (mmsi) mmsi, shipname
-        FROM messages
+        FROM {TABLE_NAME}
         WHERE
         shipname IS NOT NULL
         ORDER BY mmsi, ts DESC;
@@ -65,7 +67,7 @@ def fetch_all_the_things(ts_max: str | None = None, ts_delta_minutes: int = 15):
             lat,
             lon
         FROM
-            messages
+            {TABLE_NAME}
         WHERE
             {valid_latlon}
             AND ts::int >= {ts_max} - {ts_delta_minutes * 60}

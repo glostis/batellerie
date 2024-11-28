@@ -6,15 +6,15 @@ services:
     #   - 0.0.0.0:12345:12345
     network_mode: host
     volumes:
-      - ./:/app/
-    command: python back.py store
+      - ./data:/data/
+    command: python -m batellerie.back store
 
   sync:
     image: ais
     build: ./
     volumes:
-      - ./:/app/
-    command: python back.py sync
+      - ./data:/data/
+    command: python -m batellerie.back sync
 
   front:
     image: ais
@@ -22,8 +22,8 @@ services:
     ports:
         - 8080:5000
     volumes:
-      - ./:/app/
-    command: python front.py
+      - ./data:/data/
+    command: python -m batellerie.front
     environment:
       - VIRTUAL_HOST
       - LETSENCRYPT_HOST

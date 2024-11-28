@@ -8,11 +8,7 @@ import pandas as pd
 from pyais import NMEAMessage
 from pyais.stream import UDPReceiver
 
-HOST = "0.0.0.0"
-PORT = 12345
-
-MESSAGES_PATH = "./messages.txt"
-DB_PATH = "./messages.db"
+from batellerie import DB_PATH, TABLE_NAME, TXT_PATH, UDP_HOST_LISTEN, UDP_PORT_LISTEN
 
 
 def _reverse_readline(filename, buf_size=8192):
@@ -49,7 +45,7 @@ def _reverse_readline(filename, buf_size=8192):
 
 
 def store():
-    p = Path(MESSAGES_PATH)
+    p = Path(TXT_PATH)
     p.touch()
 
     try:
@@ -60,19 +56,18 @@ def store():
     current_id = last_id + 1
 
     print("Streaming messages...")
-    for msg in UDPReceiver(HOST, PORT):
+    for msg in UDPReceiver(UDP_HOST_LISTEN, UDP_PORT_LISTEN):
         with open(p, "a") as f:
             f.write(f"{current_id} {int(time())} {msg.raw}\n")
         current_id += 1
 
 
 def sync():
-    p = Path(MESSAGES_PATH)
-    table = "messages"
+    p = Path(TXT_PATH)
 
     with duckdb.connect(DB_PATH) as con:
         con.execute(f"""
-            CREATE TABLE IF NOT EXISTS {table} (
+            CREATE TABLE IF NOT EXISTS {TABLE_NAME} (
                 id UBIGINT,
                 msg_type UTINYINT,
                 repeat UTINYINT,
@@ -139,7 +134,7 @@ def sync():
 
     while True:
         with duckdb.connect(DB_PATH) as con:
-            max_id = con.execute(f"SELECT MAX(id) FROM {table}").fetchone()[0] or 0
+            max_id = con.execute(f"SELECT MAX(id) FROM {TABLE_NAME}").fetchone()[0] or 0
         parsed_messages = []
         for line in _reverse_readline(p):
             line = line.strip()
@@ -159,7 +154,7 @@ def sync():
             df = pd.DataFrame(parsed_messages)
             print(f"Inserting {len(df)} rows")
             with duckdb.connect(DB_PATH) as con:
-                con.execute(f"INSERT INTO {table} BY NAME SELECT * FROM df")
+                con.execute(f"INSERT INTO {TABLE_NAME} BY NAME SELECT * FROM df")
 
         sleep(30)
 
