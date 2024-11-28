@@ -1,6 +1,6 @@
 services:
   store:
-    image: ais
+    image: batellerie
     build: ./
     # ports:
     #   - 0.0.0.0:12345:12345
@@ -10,14 +10,14 @@ services:
     command: python -m batellerie.back store
 
   sync:
-    image: ais
+    image: batellerie
     build: ./
     volumes:
       - ./data:/data/
     command: python -m batellerie.back sync
 
   front:
-    image: ais
+    image: batellerie
     build: ./
     ports:
         - 8080:5000
