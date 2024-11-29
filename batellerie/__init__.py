@@ -1,12 +1,15 @@
+import os
 import random
 import time
 
 import duckdb
 from duckdb import DuckDBPyConnection
 
-TXT_PATH = "/data/messages.txt"
+DATA_DIR = os.getenv("DATA_DIR", "/data")
 
-DB_PATH = "/data/messages.db"
+TXT_PATH = f"{DATA_DIR}/messages.txt"
+
+DB_PATH = f"{DATA_DIR}/messages.db"
 TABLE_NAME = "messages"
 
 UDP_HOST_LISTEN = "0.0.0.0"

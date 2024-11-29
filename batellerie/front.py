@@ -9,6 +9,11 @@ from batellerie import DB_PATH, TABLE_NAME, duckdb_connect
 
 app = Flask(__name__)
 
+STATIC_MMSIS = (
+    "226015750",  # STATION FLUV GUERDIN
+    "2268206",  # Clairoix antenna
+)
+
 
 def fetch_all_the_things(ts_max: str | None = None, ts_delta_minutes: int = 15):
     """Fetch the required data (positions, tracks, shipnames) from the database.
@@ -52,8 +57,9 @@ def fetch_all_the_things(ts_max: str | None = None, ts_delta_minutes: int = 15):
     """
     shipnames = pd.read_sql(query_shipnames, con)
 
-    # Remove shipname from persistent static emitter STATION FLUV GUERDIN
-    shipnames.loc[shipnames.mmsi == "226015750", "shipname"] = None
+    # Remove shipname from persistent static emitters
+    for mmsi in STATIC_MMSIS:
+        shipnames.loc[shipnames.mmsi == mmsi, "shipname"] = None
 
     # Merge ship names into the positions DataFrame
     latest_positions = latest_positions.merge(shipnames, on="mmsi", how="left")
@@ -71,6 +77,7 @@ def fetch_all_the_things(ts_max: str | None = None, ts_delta_minutes: int = 15):
             {valid_latlon}
             AND ts::int >= {ts_max} - {ts_delta_minutes * 60}
             AND ts::int <= {ts_max}
+            AND mmsi NOT IN {STATIC_MMSIS}
         ORDER BY
             ts DESC;
     """

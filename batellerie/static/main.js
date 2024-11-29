@@ -6,7 +6,6 @@ import { midToFlag } from "./flags.js";
 const map = L.map("map").setView([49.44, 2.83], 12);
 
 map.addControl(new L.Control.Fullscreen());
-
 // Load protomaps basemap and handle theme
 function createProtomapsLayer(theme) {
   return protomapsL.leafletLayer({
@@ -47,37 +46,76 @@ themeToggleControl.onAdd = function () {
 };
 themeToggleControl.addTo(map);
 
-let waybackMode = false;
-const waybackToggleControl = L.control({ position: "topleft" });
-waybackToggleControl.onAdd = function () {
-  const div = L.DomUtil.create("div", "leaflet-bar leaflet-control");
-
-  // Toggle Button
-  const button = L.DomUtil.create("a", "", div);
-  button.href = "#";
-  button.id = "wayback-button";
-  button.title = "Wayback machine";
-  button.style.cursor = "pointer";
-
-  L.DomEvent.on(button, "click", function (e) {
-    L.DomEvent.preventDefault(e);
-
-    // Toggle the wayback mode
-    waybackMode = waybackMode === false ? true : false;
-
-    if (waybackMode == true) {
-      document.getElementById("datetime").style.display = "block";
-      clearInterval(intervalId);
-    } else {
-      document.getElementById("datetime").style.display = "none";
-      updateMap();
-      intervalId = setInterval(updateMap, 30000);
-      const timestampDiv = document.getElementById("timestamp");
-    }
+function timeTravel(timeDelta) {
+  let datetimeElement = document.getElementById("datetime");
+  let dt = new Date(datetimeElement.value);
+  console.log(dt);
+  dt = new Date(dt.getTime() + timeDelta * 60 * 1000);
+  console.log(dt);
+  datetimeElement.value = dateToFullString(dt);
+  // Create a new change event
+  const event = new Event("change", {
+    bubbles: true, // allows the event to bubble up through the DOM
+    cancelable: true, // allows the event to be canceled
   });
-  return div;
-};
-waybackToggleControl.addTo(map);
+
+  // Dispatch the change event
+  datetimeElement.dispatchEvent(event);
+}
+
+let waybackMode = false;
+new L.cascadeButtons(
+  [
+    {
+      icon: "fas fa-clock-rotate-left",
+      command: () => {
+        // Toggle the wayback mode
+        waybackMode = waybackMode === false ? true : false;
+
+        let datetimeElement = document.getElementById("datetime");
+        if (waybackMode == true) {
+          datetimeElement.style.display = "block";
+          clearInterval(intervalId);
+          let dt = new Date(Date.now());
+          datetimeElement.value = dateToFullString(dt);
+          timeTravel(0);
+        } else {
+          datetimeElement.style.display = "none";
+          updateMap();
+          intervalId = setInterval(updateMap, 30000);
+          const timestampDiv = document.getElementById("timestamp");
+        }
+      },
+      items: [
+        {
+          icon: "fas fa-backward-fast",
+          command: () => {
+            timeTravel(-15);
+          },
+        },
+        {
+          icon: "fas fa-backward-step",
+          command: () => {
+            timeTravel(-5);
+          },
+        },
+        {
+          icon: "fas fa-forward-step",
+          command: () => {
+            timeTravel(+5);
+          },
+        },
+        {
+          icon: "fas fa-forward-fast",
+          command: () => {
+            timeTravel(+15);
+          },
+        },
+      ],
+    },
+  ],
+  { position: "topleft", direction: "vertical" },
+).addTo(map);
 
 const waybackDatetimePicker = L.control({ position: "topleft" });
 waybackDatetimePicker.onAdd = function () {
@@ -103,22 +141,28 @@ async function timestampLive(latestTs) {
   const dt = new Date(latestTs * 1000);
   const pingHours = dt.getHours();
   const pingMinutes = dt.getMinutes();
-  timestampDiv.innerText = `Latest ping: ${pingHours}:${pingMinutes < 10 ? "0" : ""}${pingMinutes} (${minutesAgo} minutes ago)`;
+  timestampDiv.innerText = `Latest ping: ${pingHours}:${dateToTimeString(dt)} (${minutesAgo} minutes ago)`;
 }
 
-function dateToString(date) {
+function dateToTimeString(date) {
+  const hours = date.getHours();
+  const minutes = date.getMinutes();
+  return `${hours < 10 ? "0" : ""}${hours}:${minutes < 10 ? "0" : ""}${minutes}`;
+}
+
+function dateToFullString(date) {
   const year = date.getFullYear();
   const month = date.getMonth() + 1; // Months are zero-based in JavaScript
   const day = date.getDate();
   const hours = date.getHours();
   const minutes = date.getMinutes();
-  return `${year}-${month}-${day} ${hours}:${minutes}`;
+  return `${year}-${month}-${day}T${dateToTimeString(date)}`;
 }
 
 export async function timestampWayback(ts) {
   const timestampDiv = document.getElementById("timestamp");
   const date = new Date(ts * 1000);
-  timestampDiv.innerText = `Browsing data at ${dateToString(date)}`;
+  timestampDiv.innerText = `Browsing data at ${dateToFullString(date)}`;
 }
 
 export async function updateMap(tsMax, live = true) {
@@ -140,19 +184,22 @@ export async function updateMap(tsMax, live = true) {
       Object.keys(tracks).forEach((mmsi) => {
         const coordinates = tracks[mmsi]; // List of (lat, lon) tuples
 
-        // Convert to Leaflet-compatible format
-        const latLngs = coordinates.map(([lat, lon]) => [lat, lon]);
+        // In cases where we have no tracks, we skip this
+        if (Array.isArray(coordinates) && coordinates.length > 1) {
+          // Convert to Leaflet-compatible format
+          const latLngs = coordinates.map(([lat, lon]) => [lat, lon]);
 
-        // Create a polyline for the MMSI
-        for (let i = 0; i < latLngs.length - 1; i++) {
-          const opacity = 1 - i / (latLngs.length - 1);
+          // Create a polyline for the MMSI
+          for (let i = 0; i < latLngs.length - 1; i++) {
+            const opacity = 1 - i / (latLngs.length - 1);
 
-          // Create a segment from point i to point i+1
-          const segment = L.polyline([latLngs[i], latLngs[i + 1]], {
-            color: "#F8591F",
-            weight: 3,
-            opacity: opacity,
-          }).addTo(layerGroup);
+            // Create a segment from point i to point i+1
+            const segment = L.polyline([latLngs[i], latLngs[i + 1]], {
+              color: "#F8591F",
+              weight: 3,
+              opacity: opacity,
+            }).addTo(layerGroup);
+          }
         }
       });
 
@@ -216,7 +263,7 @@ export async function updateMap(tsMax, live = true) {
             `${Math.floor((Date.now() - ts * 1000) / 1000 / 60)} minutes ago`;
         } else {
           const dt = new Date(ts * 1000);
-          popupText = popupText + `${dateToString(dt)}`;
+          popupText = popupText + `${dateToFullString(dt)}`;
         }
 
         shipMarker.addTo(layerGroup).bindPopup(popupText);
