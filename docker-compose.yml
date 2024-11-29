@@ -8,6 +8,7 @@ services:
     volumes:
       - ./data:/data/
     command: python -m batellerie.back store
+    restart: unless-stopped
 
   sync:
     image: batellerie
@@ -15,6 +16,7 @@ services:
     volumes:
       - ./data:/data/
     command: python -m batellerie.back sync
+    restart: unless-stopped
 
   front:
     image: batellerie
@@ -28,8 +30,10 @@ services:
       - VIRTUAL_HOST
       - LETSENCRYPT_HOST
       - LETSENCRYPT_EMAIL
+    restart: unless-stopped
+    networks:
+      - nginx-proxy
 
 networks:
-  default:
-    external:
-      name: nginx-proxy
+  nginx-proxy:
+    external: true

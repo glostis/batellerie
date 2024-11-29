@@ -3,12 +3,11 @@ import sys
 from pathlib import Path
 from time import sleep, time
 
-import duckdb
 import pandas as pd
 from pyais import NMEAMessage
 from pyais.stream import UDPReceiver
 
-from batellerie import DB_PATH, TABLE_NAME, TXT_PATH, UDP_HOST_LISTEN, UDP_PORT_LISTEN
+from batellerie import DB_PATH, TABLE_NAME, TXT_PATH, UDP_HOST_LISTEN, UDP_PORT_LISTEN, duckdb_connect
 
 
 def _reverse_readline(filename, buf_size=8192):
@@ -65,7 +64,7 @@ def store():
 def sync():
     p = Path(TXT_PATH)
 
-    with duckdb.connect(DB_PATH) as con:
+    with duckdb_connect(DB_PATH) as con:
         con.execute(f"""
             CREATE TABLE IF NOT EXISTS {TABLE_NAME} (
                 id UBIGINT,
@@ -133,7 +132,7 @@ def sync():
             """)
 
     while True:
-        with duckdb.connect(DB_PATH) as con:
+        with duckdb_connect(DB_PATH) as con:
             max_id = con.execute(f"SELECT MAX(id) FROM {TABLE_NAME}").fetchone()[0] or 0
         parsed_messages = []
         for line in _reverse_readline(p):
@@ -153,7 +152,7 @@ def sync():
         if parsed_messages:
             df = pd.DataFrame(parsed_messages)
             print(f"Inserting {len(df)} rows")
-            with duckdb.connect(DB_PATH) as con:
+            with duckdb_connect(DB_PATH) as con:
                 con.execute(f"INSERT INTO {TABLE_NAME} BY NAME SELECT * FROM df")
 
         sleep(30)

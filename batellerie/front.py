@@ -1,12 +1,11 @@
 import json
 import os
 
-import duckdb
 import pandas as pd
 from flask import Flask, Response, render_template, request
 from pyais.constants import NavigationStatus
 
-from batellerie import DB_PATH, TABLE_NAME
+from batellerie import DB_PATH, TABLE_NAME, duckdb_connect
 
 app = Flask(__name__)
 
@@ -19,7 +18,7 @@ def fetch_all_the_things(ts_max: str | None = None, ts_delta_minutes: int = 15):
             If None is given, will take the most recent.
         - ts_delta_minutes: The timedelta before `ts_max` until which latest positions and tracks are taken.
     """
-    con = duckdb.connect(DB_PATH, read_only=True)
+    con = duckdb_connect(DB_PATH, read_only=True)
 
     if ts_max is None:
         query_tracks = f"SELECT MAX(ts) FROM {TABLE_NAME}"
