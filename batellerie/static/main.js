@@ -141,7 +141,7 @@ async function timestampLive(latestTs) {
   const dt = new Date(latestTs * 1000);
   const pingHours = dt.getHours();
   const pingMinutes = dt.getMinutes();
-  timestampDiv.innerText = `Latest ping: ${pingHours}:${dateToTimeString(dt)} (${minutesAgo} minutes ago)`;
+  timestampDiv.innerText = `Latest ping: ${dateToTimeString(dt)} (${minutesAgo} minutes ago)`;
 }
 
 function dateToTimeString(date) {
@@ -205,8 +205,22 @@ export async function updateMap(tsMax, live = true) {
 
       // Add ship positions
       positions.forEach((item) => {
-        const { mmsi, lat, lon, ts, course, speed, status, shipname, mid } =
-          item;
+        const {
+          mmsi,
+          lat,
+          lon,
+          ts,
+          course,
+          speed,
+          status,
+          shipname,
+          mid,
+          length,
+          width,
+          ship_type,
+          destination,
+          destination_ts,
+        } = item;
 
         const shipMarker =
           course == null || speed == 0
@@ -250,8 +264,11 @@ export async function updateMap(tsMax, live = true) {
                 }),
               });
 
+        const dt_destination = new Date(destination_ts * 1000);
         let popupText = `
           <b>${midToFlag(mid)} ${shipname || "Undefined name"}</b><br/>
+          Destination: ${destination} (${destination_ts !== null ? dateToFullString(dt_destination) : ""})<br/>
+          ${length} × ${width}m (${ship_type || "Undefined ship type"})<br/>
           MMSI: <a href="https://www.marinetraffic.com/en/ais/details/ships/mmsi:${mmsi}" target="_blank" rel="noopener noreferrer">${mmsi}</a><br/>
           Speed: ${speed || "?"}kts<br/>
           ${status}<br/>
