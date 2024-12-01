@@ -1,304 +1,269 @@
 import { midToFlag } from "./flags.js";
 
 // ##################
-// Map initialisation
+// Map Initialization
 // ##################
 const map = L.map("map").setView([49.44, 2.83], 12);
 
+const layerGroup = L.layerGroup().addTo(map);
+
+let intervalId = setInterval(updateMap, 30000);
+let waybackMode = false;
+let currentTheme = localStorage.getItem("mapTheme") || "light";
+let protomapLayer = createProtomapsLayer(currentTheme).addTo(map);
+
 map.addControl(new L.Control.Fullscreen());
-// Load protomaps basemap and handle theme
+addThemeToggleControl();
+addCascadeButtons();
+addDatetimePickerControl();
+
+// ######################
+// Function Definitions
+// ######################
+
 function createProtomapsLayer(theme) {
   return protomapsL.leafletLayer({
     url: "static/map.pmtiles",
-    theme: theme,
+    theme,
   });
 }
-const savedTheme = localStorage.getItem("mapTheme") || "light";
-let currentTheme = savedTheme;
-let protomapLayer = createProtomapsLayer(currentTheme);
-protomapLayer.addTo(map);
 
-const themeToggleControl = L.control({ position: "topleft" });
-themeToggleControl.onAdd = function () {
+function addThemeToggleControl() {
+  const themeToggleControl = L.control({ position: "topleft" });
+  themeToggleControl.onAdd = () => createToggleControl();
+  themeToggleControl.addTo(map);
+}
+
+function createToggleControl() {
   const div = L.DomUtil.create("div", "leaflet-bar leaflet-control");
   const button = L.DomUtil.create("a", "", div);
   button.href = "#";
   button.title = "Toggle Light/Dark Theme";
-  button.innerHTML = "🌓"; // Toggle icon
+  button.innerHTML = "🌓";
   button.style.cursor = "pointer";
 
-  L.DomEvent.on(button, "click", function (e) {
+  L.DomEvent.on(button, "click", (e) => {
     L.DomEvent.preventDefault(e);
-
-    // Toggle the theme
-    currentTheme = currentTheme === "dark" ? "light" : "dark";
-    localStorage.setItem("mapTheme", currentTheme);
-
-    // Remove the existing layer
-    map.removeLayer(protomapLayer);
-
-    // Add a new layer with the updated theme
-    protomapLayer = createProtomapsLayer(currentTheme);
-    protomapLayer.addTo(map);
+    toggleTheme();
   });
 
   return div;
-};
-themeToggleControl.addTo(map);
-
-function timeTravel(timeDelta) {
-  let datetimeElement = document.getElementById("datetime");
-  let dt = new Date(datetimeElement.value);
-  console.log(dt);
-  dt = new Date(dt.getTime() + timeDelta * 60 * 1000);
-  console.log(dt);
-  datetimeElement.value = dateToFullString(dt);
-  // Create a new change event
-  const event = new Event("change", {
-    bubbles: true, // allows the event to bubble up through the DOM
-    cancelable: true, // allows the event to be canceled
-  });
-
-  // Dispatch the change event
-  datetimeElement.dispatchEvent(event);
 }
 
-let waybackMode = false;
-new L.cascadeButtons(
-  [
-    {
-      icon: "fas fa-clock-rotate-left",
-      command: () => {
-        // Toggle the wayback mode
-        waybackMode = waybackMode === false ? true : false;
+function toggleTheme() {
+  currentTheme = currentTheme === "dark" ? "light" : "dark";
+  localStorage.setItem("mapTheme", currentTheme);
 
-        let datetimeElement = document.getElementById("datetime");
-        if (waybackMode == true) {
-          datetimeElement.style.display = "block";
-          clearInterval(intervalId);
-          let dt = new Date(Date.now());
-          datetimeElement.value = dateToFullString(dt);
-          timeTravel(0);
-        } else {
-          datetimeElement.style.display = "none";
-          updateMap();
-          intervalId = setInterval(updateMap, 30000);
-          const timestampDiv = document.getElementById("timestamp");
-        }
-      },
-      items: [
-        {
-          icon: "fas fa-backward-fast",
-          command: () => {
-            timeTravel(-15);
-          },
-        },
-        {
-          icon: "fas fa-backward-step",
-          command: () => {
-            timeTravel(-5);
-          },
-        },
-        {
-          icon: "fas fa-forward-step",
-          command: () => {
-            timeTravel(+5);
-          },
-        },
-        {
-          icon: "fas fa-forward-fast",
-          command: () => {
-            timeTravel(+15);
-          },
-        },
-      ],
-    },
-  ],
-  { position: "topleft", direction: "vertical" },
-).addTo(map);
+  map.removeLayer(protomapLayer);
+  protomapLayer = createProtomapsLayer(currentTheme).addTo(map);
+}
 
-const waybackDatetimePicker = L.control({ position: "topleft" });
-waybackDatetimePicker.onAdd = function () {
+function addDatetimePickerControl() {
+  const waybackDatetimePicker = L.control({ position: "topleft" });
+  waybackDatetimePicker.onAdd = () => createDatetimePicker();
+  waybackDatetimePicker.addTo(map);
+}
+
+function createDatetimePicker() {
   const div = L.DomUtil.create("div", "leaflet-bar leaflet-control");
   const datetimePicker = L.DomUtil.create("input", "", div);
   datetimePicker.type = "datetime-local";
   datetimePicker.id = "datetime";
   datetimePicker.style.display = "none";
+  datetimePicker.addEventListener("change", async (event) => {
+    // Get the input value
+    const datetimeInput = document.getElementById("datetime").value;
+
+    // Convert the input to an epoch timestamp
+    const epochTimestamp = new Date(datetimeInput).getTime() / 1000;
+
+    if (isNaN(epochTimestamp)) {
+      alert("Invalid date or time. Please select a valid datetime.");
+      return;
+    }
+
+    updateMap(epochTimestamp, false);
+    document.getElementById("timestamp").innerText =
+      `Data from ${dateToFullString(new Date(epochTimestamp * 1000))}`;
+  });
   return div;
-};
-waybackDatetimePicker.addTo(map);
-
-// ####################
-// Load data to the map
-// ####################
-
-// Layer group to which markers and lines are added, to ease refreshing the data
-const layerGroup = L.layerGroup().addTo(map);
-
-async function timestampLive(latestTs) {
-  const timestampDiv = document.getElementById("timestamp");
-  const minutesAgo = Math.floor((Date.now() - latestTs * 1000) / 1000 / 60);
-  const dt = new Date(latestTs * 1000);
-  const pingHours = dt.getHours();
-  const pingMinutes = dt.getMinutes();
-  timestampDiv.innerText = `Latest ping: ${dateToTimeString(dt)} (${minutesAgo} minutes ago)`;
 }
 
+function addCascadeButtons() {
+  new L.cascadeButtons(
+    [
+      {
+        icon: "fas fa-clock-rotate-left",
+        command: toggleWaybackMode,
+        items: createTimeTravelButtons(),
+      },
+    ],
+    { position: "topleft", direction: "vertical" },
+  ).addTo(map);
+}
+
+function createTimeTravelButtons() {
+  return [
+    { icon: "fas fa-backward-fast", command: () => timeTravel(-15) },
+    { icon: "fas fa-backward-step", command: () => timeTravel(-5) },
+    { icon: "fas fa-forward-step", command: () => timeTravel(5) },
+    { icon: "fas fa-forward-fast", command: () => timeTravel(15) },
+  ];
+}
+
+function toggleWaybackMode() {
+  waybackMode = !waybackMode;
+  const datetimeElement = document.getElementById("datetime");
+  datetimeElement.style.display = waybackMode ? "block" : "none";
+
+  if (waybackMode) {
+    clearInterval(intervalId);
+    console.log(dateToFullString(new Date()));
+    datetimeElement.value = dateToFullString(new Date());
+    timeTravel(0);
+  } else {
+    updateMap();
+    intervalId = setInterval(updateMap, 30000);
+  }
+}
+
+function timeTravel(minutes) {
+  const datetimeElement = document.getElementById("datetime");
+  const newTime = new Date(
+    new Date(datetimeElement.value).getTime() + minutes * 60000,
+  );
+  datetimeElement.value = dateToFullString(newTime);
+
+  datetimeElement.dispatchEvent(
+    new Event("change", { bubbles: true, cancelable: true }),
+  );
+}
+
+// ######################
+// Map Data Loading
+// ######################
+
+async function updateMap(tsMax, live = true) {
+  const apiRoute = tsMax ? `/data?tsMax=${tsMax}` : `/data`;
+  try {
+    const response = await fetch(apiRoute).then((res) => res.json());
+    const { positions, tracks, latestTs } = response;
+
+    layerGroup.clearLayers();
+
+    if (live) updateTimestampLive(latestTs);
+    drawTracks(tracks);
+    addShipMarkers(positions, live);
+  } catch (error) {
+    console.error("Error fetching data:", error);
+  }
+}
+
+function updateTimestampLive(latestTs) {
+  const minutesAgo = Math.floor((Date.now() - latestTs * 1000) / 60000);
+  document.getElementById("timestamp").innerText =
+    `Latest ping: ${dateToTimeString(new Date(latestTs * 1000))} (${minutesAgo} minutes ago)`;
+}
+
+function drawTracks(tracks) {
+  Object.values(tracks).forEach((coordinates) => {
+    if (coordinates.length > 1) {
+      const latLngs = coordinates.map(([lat, lon]) => [lat, lon]);
+
+      for (let i = 0; i < latLngs.length - 1; i++) {
+        const opacity = 1 - i / (latLngs.length - 1); // Calculate fading opacity
+        L.polyline([latLngs[i], latLngs[i + 1]], {
+          color: "#F8591F",
+          weight: 3,
+          opacity,
+        }).addTo(layerGroup);
+      }
+    }
+  });
+}
+
+function addShipMarkers(positions, live) {
+  positions.forEach((ship) => {
+    const { mmsi, lat, lon, course, speed, shipname, mid } = ship;
+    const marker = createShipMarker(lat, lon, course, speed);
+    const popupText = createPopupText(ship, live);
+
+    marker.addTo(layerGroup).bindPopup(popupText);
+    if (shipname)
+      marker
+        .bindTooltip(`${midToFlag(mid)} ${shipname}`, {
+          permanent: true,
+          direction: "left",
+        })
+        .openTooltip();
+  });
+}
+
+function createShipMarker(lat, lon, course, speed) {
+  return course !== null && speed !== 0
+    ? L.marker([lat, lon], {
+        icon: L.divIcon({
+          className: "arrow-icon",
+          html: `<div style="transform: rotate(${course || 0}deg);"><img src="static/arrow_icon.svg">
+</div>`,
+          iconSize: [20, 20],
+        }),
+      })
+    : L.circleMarker([lat, lon], {
+        radius: 5,
+        fillColor: "#F8591F",
+        color: "#F8591F",
+        fillOpacity: 0.8,
+      });
+}
+
+function createPopupText(ship, live) {
+  const {
+    mmsi,
+    shipname,
+    speed,
+    status,
+    destination,
+    destination_ts,
+    ts,
+    length,
+    width,
+    ship_type,
+  } = ship;
+  const timeStr = live
+    ? `${Math.floor((Date.now() - ts * 1000) / 60000)} minutes ago`
+    : dateToFullString(new Date(ts * 1000));
+  const destinationTsStr = live
+    ? `${Math.floor((Date.now() - destination_ts * 1000) / 60000)} minutes ago`
+    : dateToFullString(new Date(destination_ts * 1000));
+  let popupText = `<b>${midToFlag(ship.mid)} ${shipname || "Unknown ship name"}</b><br/>`;
+  popupText += `MMSI: <a href="https://www.marinetraffic.com/en/ais/details/ships/mmsi:${mmsi}" target="_blank" rel="noopener noreferrer">${mmsi}</a><br/>`;
+  if (length)
+    popupText += `${length} × ${width}m (${ship_type || "Unknown ship type"})<br/>`;
+  if (destination)
+    popupText += `Destination: ${destination} (${destinationTsStr})<br/>`;
+  if (speed) popupText += `Speed: ${speed} kts<br/>`;
+  if (status) popupText += `Status: ${status}<br/>`;
+  popupText += `${timeStr}`;
+  return popupText;
+}
+
+// ######################
+// Utility Functions
+// ######################
+
 function dateToTimeString(date) {
-  const hours = date.getHours();
-  const minutes = date.getMinutes();
-  return `${hours < 10 ? "0" : ""}${hours}:${minutes < 10 ? "0" : ""}${minutes}`;
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${hours}:${minutes}`;
 }
 
 function dateToFullString(date) {
   const year = date.getFullYear();
-  const month = date.getMonth() + 1; // Months are zero-based in JavaScript
-  const day = date.getDate();
-  const hours = date.getHours();
-  const minutes = date.getMinutes();
+  const month = String(date.getMonth() + 1).padStart(2, "0"); // Months are zero-based
+  const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}T${dateToTimeString(date)}`;
 }
 
-export async function timestampWayback(ts) {
-  const timestampDiv = document.getElementById("timestamp");
-  const date = new Date(ts * 1000);
-  timestampDiv.innerText = `Browsing data at ${dateToFullString(date)}`;
-}
-
-export async function updateMap(tsMax, live = true) {
-  const apiRoute = tsMax !== undefined ? `/data?tsMax=${tsMax}` : `/data`;
-  fetch(`${apiRoute}`)
-    .then((response) => response.json())
-    .then((response) => {
-      const { positions, tracks, latestTs } = response;
-
-      // Clear the existing layers
-      layerGroup.clearLayers();
-
-      // Update the timestamp display
-      if (live == true) {
-        timestampLive(latestTs);
-      }
-
-      // Add ship tracks
-      Object.keys(tracks).forEach((mmsi) => {
-        const coordinates = tracks[mmsi]; // List of (lat, lon) tuples
-
-        // In cases where we have no tracks, we skip this
-        if (Array.isArray(coordinates) && coordinates.length > 1) {
-          // Convert to Leaflet-compatible format
-          const latLngs = coordinates.map(([lat, lon]) => [lat, lon]);
-
-          // Create a polyline for the MMSI
-          for (let i = 0; i < latLngs.length - 1; i++) {
-            const opacity = 1 - i / (latLngs.length - 1);
-
-            // Create a segment from point i to point i+1
-            const segment = L.polyline([latLngs[i], latLngs[i + 1]], {
-              color: "#F8591F",
-              weight: 3,
-              opacity: opacity,
-            }).addTo(layerGroup);
-          }
-        }
-      });
-
-      // Add ship positions
-      positions.forEach((item) => {
-        const {
-          mmsi,
-          lat,
-          lon,
-          ts,
-          course,
-          speed,
-          status,
-          shipname,
-          mid,
-          length,
-          width,
-          ship_type,
-          destination,
-          destination_ts,
-        } = item;
-
-        const shipMarker =
-          course == null || speed == 0
-            ? L.circleMarker([lat, lon], {
-                radius: 5,
-                fillColor: "#F8591F",
-                color: "#F8591F",
-                weight: 1,
-                opacity: 1,
-                fillOpacity: 0.8,
-              })
-            : L.marker([lat, lon], {
-                icon: L.divIcon({
-                  className: "arrow-icon",
-                  html: `
-                        <div style="transform: rotate(${course || 0}deg);">
-                          <svg
-                            version="1.0"
-                            width="20"
-                            height="20"
-                            viewBox="0 0 1280 1280"
-                            xmlns="http://www.w3.org/2000/svg"
-                            xmlns:svg="http://www.w3.org/2000/svg"
-                          >
-                            <g
-                              transform="matrix(-0.1,0,0,0.1,1280.0495,0.09709988)"
-                              fill="#F8591F"
-                              stroke="none"
-                              id="g1"
-                            >
-                              <path
-                                d="M 314,12790 C 119,12749 -21,12548 5,12345 11,12294 388,11534 3045,6220 5946,419 6081,151 6127,110 6188,56 6284,11 6358,4 c 118,-13 258,40 334,125 31,35 771,1508 3070,6106 2924,5849 3029,6062 3035,6126 15,173 -76,326 -237,403 -59,27 -74,30 -160,30 -79,-1 -104,-5 -150,-26 -30,-13 -1359,-894 -2953,-1956 L 6400,8880 3503,10812 c -1594,1062 -2923,1942 -2953,1956 -61,27 -168,37 -236,22 z"
-                                id="path1"
-                              />
-                            </g>
-                          </svg>
-                        </div>
-                      `,
-                  iconSize: [20, 20],
-                  tooltipAnchor: [-10, 0],
-                }),
-              });
-
-        const dt_destination = new Date(destination_ts * 1000);
-        let popupText = `
-          <b>${midToFlag(mid)} ${shipname || "Undefined name"}</b><br/>
-          Destination: ${destination} (${destination_ts !== null ? dateToFullString(dt_destination) : ""})<br/>
-          ${length} × ${width}m (${ship_type || "Undefined ship type"})<br/>
-          MMSI: <a href="https://www.marinetraffic.com/en/ais/details/ships/mmsi:${mmsi}" target="_blank" rel="noopener noreferrer">${mmsi}</a><br/>
-          Speed: ${speed || "?"}kts<br/>
-          ${status}<br/>
-        `;
-
-        if (live == true) {
-          popupText =
-            popupText +
-            `${Math.floor((Date.now() - ts * 1000) / 1000 / 60)} minutes ago`;
-        } else {
-          const dt = new Date(ts * 1000);
-          popupText = popupText + `${dateToFullString(dt)}`;
-        }
-
-        shipMarker.addTo(layerGroup).bindPopup(popupText);
-        if (shipname) {
-          shipMarker
-            .bindTooltip(`${midToFlag(mid)} ${shipname}`, {
-              permanent: true,
-              direction: "left",
-            })
-            .openTooltip();
-        }
-      });
-    })
-    .catch((error) => console.error("Error fetching data:", error));
-}
-
-// Initial map update
+// Initial Map Update
 updateMap();
-
-// Refresh map every 30 seconds
-let intervalId = setInterval(updateMap, 30000);
