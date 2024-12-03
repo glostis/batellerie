@@ -45,7 +45,14 @@ def fetch_all_the_things(ts_max: str | None = None, ts_delta_minutes: int = 15):
         ORDER BY mmsi, ts DESC;
     """
     latest_positions = pd.read_sql(query_positions, con)
-    latest_positions["status"] = latest_positions.status.apply(lambda status: NavigationStatus.from_value(status).name)
+
+    def _status_name(status_code):
+        try:
+            NavigationStatus.from_value(status_code).name
+        except AttributeError:
+            return "Undefined"
+
+    latest_positions["status"] = latest_positions.status.apply(_status_name)
 
     # Fetch ship names
     query_shipnames = f"""

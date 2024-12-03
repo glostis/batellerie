@@ -84,7 +84,7 @@ function createDatetimePicker() {
 
     updateMap(epochTimestamp, false);
     document.getElementById("timestamp").innerText =
-      `Data from ${dateToFullString(new Date(epochTimestamp * 1000))}`;
+      `${timeAgo(epochTimestamp)}`;
   });
   return div;
 }
@@ -118,7 +118,6 @@ function toggleWaybackMode() {
 
   if (waybackMode) {
     clearInterval(intervalId);
-    console.log(dateToFullString(new Date()));
     datetimeElement.value = dateToFullString(new Date());
     timeTravel(0);
   } else {
@@ -162,7 +161,7 @@ async function updateMap(tsMax, live = true) {
 function updateTimestampLive(latestTs) {
   const minutesAgo = Math.floor((Date.now() - latestTs * 1000) / 60000);
   document.getElementById("timestamp").innerText =
-    `Latest ping: ${dateToTimeString(new Date(latestTs * 1000))} (${minutesAgo} minutes ago)`;
+    `Latest ping: ${timeAgo(latestTs)}`;
 }
 
 function drawTracks(tracks) {
@@ -230,21 +229,15 @@ function createPopupText(ship, live) {
     width,
     ship_type,
   } = ship;
-  const timeStr = live
-    ? `${Math.floor((Date.now() - ts * 1000) / 60000)} minutes ago`
-    : dateToFullString(new Date(ts * 1000));
-  const destinationTsStr = live
-    ? `${Math.floor((Date.now() - destination_ts * 1000) / 60000)} minutes ago`
-    : dateToFullString(new Date(destination_ts * 1000));
   let popupText = `<b>${midToFlag(ship.mid)} ${shipname || "Unknown ship name"}</b><br/>`;
   popupText += `MMSI: <a href="https://www.marinetraffic.com/en/ais/details/ships/mmsi:${mmsi}" target="_blank" rel="noopener noreferrer">${mmsi}</a><br/>`;
   if (length)
     popupText += `${length} × ${width}m (${ship_type || "Unknown ship type"})<br/>`;
   if (destination)
-    popupText += `Destination: ${destination} (${destinationTsStr})<br/>`;
+    popupText += `Destination: ${destination} (${timeAgo(destination_ts)})<br/>`;
   if (speed) popupText += `Speed: ${speed} kts<br/>`;
-  if (status) popupText += `Status: ${status}<br/>`;
-  popupText += `${timeStr}`;
+  if (status && status !== "Undefined") popupText += `Status: ${status}<br/>`;
+  popupText += `${timeAgo(ts)}`;
   return popupText;
 }
 
@@ -263,6 +256,16 @@ function dateToFullString(date) {
   const month = String(date.getMonth() + 1).padStart(2, "0"); // Months are zero-based
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}T${dateToTimeString(date)}`;
+}
+
+function timeAgo(timestampSeconds) {
+  const minutes = Math.floor((new Date() - timestampSeconds * 1000) / 60000);
+  if (minutes == 0) return `now`;
+  if (minutes < 60) return `${minutes} minute${minutes > 1 ? "s" : ""} ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24)
+    return `${hours} hour${hours > 1 ? "s" : ""} ago (${dateToTimeString(new Date(timestampSeconds * 1000))})`;
+  return dateToFullString(new Date(timestampSeconds * 1000)).replace("T", " ");
 }
 
 // Initial Map Update
