@@ -9,7 +9,9 @@ const lightTheme = "light";
 // ##################
 // Map Initialization
 // ##################
-const map = L.map("map").setView([49.44, 2.83], 12);
+const map = L.map("map", { minZoom: 12 })
+  .setView([49.44, 2.83], 12)
+  .setMaxBounds(L.latLngBounds(L.latLng(49.25, 2.6), L.latLng(49.55, 3.1)));
 
 const layerGroup = L.layerGroup().addTo(map);
 
