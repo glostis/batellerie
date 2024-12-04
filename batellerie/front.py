@@ -27,8 +27,8 @@ def fetch_all_the_things(ts_max: str | None = None, ts_min: str | None = None):
     con = duckdb_connect(DB_PATH, read_only=True)
 
     if ts_max is None:
-        query_tracks = f"SELECT MAX(ts) FROM {TABLE_NAME}"
-        res = con.execute(query_tracks).fetchone()
+        query_ts_max = f"SELECT MAX(ts) FROM {TABLE_NAME}"
+        res = con.execute(query_ts_max).fetchone()
         if not res:
             raise ValueError("The database is empty")
         ts_max: str = res[0]
@@ -128,7 +128,7 @@ def fetch_all_the_things(ts_max: str | None = None, ts_min: str | None = None):
     latest_tracks = (
         pd.read_sql(query_tracks, con)
         .groupby("mmsi")
-        .apply(lambda group: list(zip(group["lat"], group["lon"])))
+        .apply(lambda group: list(zip(group["lat"], group["lon"], group["ts"])))
         .to_json()
     )
     return {

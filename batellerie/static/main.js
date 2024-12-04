@@ -170,13 +170,13 @@ async function updateMap(tsMax, live = true) {
   const apiRoute = tsMax ? `/data?tsMax=${tsMax}` : `/data`;
   try {
     const response = await fetch(apiRoute).then((res) => res.json());
-    const { positions, tracks, tsMax } = response;
+    const { positions, tracks, tsMax, tsMin } = response;
 
     layerGroup.clearLayers();
 
     if (live) updateTimestampLive(tsMax);
-    drawTracks(tracks);
-    addShipMarkers(positions, live);
+    drawTracks(tracks, tsMax, tsMin);
+    addShipMarkers(positions, tsMax, tsMin, live);
   } catch (error) {
     console.error("Error fetching data:", error);
   }
@@ -188,27 +188,30 @@ function updateTimestampLive(tsMax) {
     `Latest ping: ${timeAgo(tsMax)}`;
 }
 
-function drawTracks(tracks) {
+function drawTracks(tracks, tsMax, tsMin) {
   Object.values(tracks).forEach((coordinates) => {
     if (coordinates.length > 1) {
-      const latLngs = coordinates.map(([lat, lon]) => [lat, lon]);
+      const latLngs = coordinates.map(([lat, lon, ts]) => [lat, lon]);
+      const tss = coordinates.map(([lat, lon, ts]) => ts);
 
       for (let i = 0; i < latLngs.length - 1; i++) {
-        const opacity = 1 - i / (latLngs.length - 1); // Calculate fading opacity
+        const opacity = Math.max((tss[i] - tsMin) / (tsMax - tsMin), 0.05);
         L.polyline([latLngs[i], latLngs[i + 1]], {
           color: "#F8591F",
           weight: 3,
           opacity,
+          lineCap: "butt",
+          interactive: false,
         }).addTo(layerGroup);
       }
     }
   });
 }
 
-function addShipMarkers(positions, live) {
+function addShipMarkers(positions, tsMax, tsMin, live) {
   positions.forEach((ship) => {
-    const { mmsi, lat, lon, course, speed, shipname, mid } = ship;
-    const marker = createShipMarker(lat, lon, course, speed);
+    const { mmsi, ts, lat, lon, course, speed, shipname, mid } = ship;
+    const marker = createShipMarker(lat, lon, course, speed, ts, tsMax, tsMin);
     const popupText = createPopupText(ship, live);
 
     marker.addTo(layerGroup).bindPopup(popupText);
@@ -222,12 +225,14 @@ function addShipMarkers(positions, live) {
   });
 }
 
-function createShipMarker(lat, lon, course, speed) {
+function createShipMarker(lat, lon, course, speed, ts, tsMax, tsMin) {
+  // Decreasing opacity, depending on the freshness of the data
+  const opacity = Math.max((ts - tsMin) / (tsMax - tsMin), 0.15);
   return course !== null && speed !== 0
     ? L.marker([lat, lon], {
         icon: L.divIcon({
           className: "arrow-icon",
-          html: `<div style="transform: rotate(${course || 0}deg);"><img src="static/arrow_icon.svg">
+          html: `<div style="transform: rotate(${course || 0}deg); opacity: ${opacity}"><img src="static/arrow_icon.svg">
 </div>`,
           iconSize: [20, 20],
         }),
@@ -235,8 +240,8 @@ function createShipMarker(lat, lon, course, speed) {
     : L.circleMarker([lat, lon], {
         radius: 5,
         fillColor: "#F8591F",
-        color: "#F8591F",
-        fillOpacity: 0.8,
+        stroke: false,
+        fillOpacity: opacity,
       });
 }
 
