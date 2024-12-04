@@ -1,7 +1,6 @@
 import json
 import os
 
-import pandas as pd
 from flask import Flask, Response, render_template, request
 from pyais.constants import NavigationStatus, ShipType
 
@@ -51,7 +50,7 @@ def fetch_all_the_things(ts_max: str | None = None, ts_min: str | None = None):
             AND ts::int <= {ts_max}
         ORDER BY mmsi, ts DESC;
     """
-    latest_positions = pd.read_sql(query_positions, con)
+    latest_positions = con.sql(query_positions).df()
 
     def _status_name(status_code):
         try:
@@ -69,7 +68,7 @@ def fetch_all_the_things(ts_max: str | None = None, ts_min: str | None = None):
         shipname IS NOT NULL
         ORDER BY mmsi, ts DESC;
     """
-    shipnames = pd.read_sql(query_shipnames, con)
+    shipnames = con.sql(query_shipnames).df()
     shipnames["ship_type"] = shipnames.ship_type.apply(
         lambda status: ShipType.from_value(status).name.replace("_NoAdditionalInformation", "").replace("_", " ")
     )
@@ -89,7 +88,7 @@ def fetch_all_the_things(ts_max: str | None = None, ts_min: str | None = None):
         to_starboard IS NOT NULL
         ORDER BY mmsi, ts DESC;
     """
-    dimensions = pd.read_sql(query_dimensions, con)
+    dimensions = con.sql(query_dimensions).df()
 
     # Fetch ship names
     query_destinations = f"""
@@ -99,7 +98,7 @@ def fetch_all_the_things(ts_max: str | None = None, ts_min: str | None = None):
         destination IS NOT NULL
         ORDER BY mmsi, ts DESC;
     """
-    destinations = pd.read_sql(query_destinations, con)
+    destinations = con.sql(query_destinations).df()
 
     # Merge ship names into the positions DataFrame
     latest_positions = (
@@ -126,9 +125,10 @@ def fetch_all_the_things(ts_max: str | None = None, ts_min: str | None = None):
             ts DESC;
     """
     latest_tracks = (
-        pd.read_sql(query_tracks, con)
+        con.sql(query_tracks)
+        .df()
         .groupby("mmsi")
-        .apply(lambda group: list(zip(group["lat"], group["lon"], group["ts"])))
+        .apply(lambda group: list(zip(group["lat"], group["lon"], group["ts"])), include_groups=False)
         .to_json()
     )
     return {
@@ -148,7 +148,7 @@ def data() -> Response:
 
 @app.route("/")
 def index():
-    return render_template("index.html")  # Serve the map frontend
+    return render_template("index.html")
 
 
 if __name__ == "__main__":
