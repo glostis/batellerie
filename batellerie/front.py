@@ -15,19 +15,26 @@ STATIC_MMSIS = (
 )
 
 
-def fetch_all_the_things(ts_max: str | None = None, ts_delta_minutes: int = 15):
+def fetch_all_the_things(ts_max: str | None = None, ts_min: str | None = None):
     """Fetch the required data (positions, tracks, shipnames) from the database.
 
     Args:
         - ts_max: The maximum timestamp until which positions and tracks are taken.
-            If None is given, will take the most recent.
-        - ts_delta_minutes: The timedelta before `ts_max` until which latest positions and tracks are taken.
+            If None is given, will take the timestamp of the most recent record in the DB.
+        - ts_min: Same as `ts_max`, but minimum.
+            If None is given, will take 15 minutes before `ts_max` (or 15 minutes before the most recent timestamp).
     """
     con = duckdb_connect(DB_PATH, read_only=True)
 
     if ts_max is None:
         query_tracks = f"SELECT MAX(ts) FROM {TABLE_NAME}"
-        ts_max = con.execute(query_tracks).fetchone()[0]
+        res = con.execute(query_tracks).fetchone()
+        if not res:
+            raise ValueError("The database is empty")
+        ts_max: str = res[0]
+
+    if ts_min is None:
+        ts_min = str(int(ts_max) - 15 * 60)
 
     valid_latlon = "lat IS NOT NULL AND lon IS NOT NULL AND lat < 90 AND lat > -90 AND lon < 180 AND lon > -180"
 
@@ -40,7 +47,7 @@ def fetch_all_the_things(ts_max: str | None = None, ts_delta_minutes: int = 15):
         FROM {TABLE_NAME}
         WHERE
             {valid_latlon}
-            AND ts::int >= {ts_max} - {ts_delta_minutes * 60}
+            AND ts::int >= {ts_min}
             AND ts::int <= {ts_max}
         ORDER BY mmsi, ts DESC;
     """
@@ -112,7 +119,7 @@ def fetch_all_the_things(ts_max: str | None = None, ts_delta_minutes: int = 15):
             {TABLE_NAME}
         WHERE
             {valid_latlon}
-            AND ts::int >= {ts_max} - {ts_delta_minutes * 60}
+            AND ts::int >= {ts_min}
             AND ts::int <= {ts_max}
             AND mmsi NOT IN {STATIC_MMSIS}
         ORDER BY
@@ -127,15 +134,16 @@ def fetch_all_the_things(ts_max: str | None = None, ts_delta_minutes: int = 15):
     return {
         "positions": json.loads(latest_positions.to_json(orient="records")),
         "tracks": json.loads(latest_tracks),
-        "latestTs": ts_max,
+        "tsMax": ts_max,
+        "tsMin": ts_min,
     }
 
 
 @app.route("/data")
 def data() -> Response:
     ts_max = request.args.get("tsMax", None)
-    ts_delta_minutes = int(request.args.get("tsDeltaMinutes", 15))
-    return Response(json.dumps(fetch_all_the_things(ts_max, ts_delta_minutes)), mimetype="application/json")
+    ts_min = request.args.get("tsMin", None)
+    return Response(json.dumps(fetch_all_the_things(ts_max, ts_min)), mimetype="application/json")
 
 
 @app.route("/")

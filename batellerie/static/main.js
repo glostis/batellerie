@@ -170,11 +170,11 @@ async function updateMap(tsMax, live = true) {
   const apiRoute = tsMax ? `/data?tsMax=${tsMax}` : `/data`;
   try {
     const response = await fetch(apiRoute).then((res) => res.json());
-    const { positions, tracks, latestTs } = response;
+    const { positions, tracks, tsMax } = response;
 
     layerGroup.clearLayers();
 
-    if (live) updateTimestampLive(latestTs);
+    if (live) updateTimestampLive(tsMax);
     drawTracks(tracks);
     addShipMarkers(positions, live);
   } catch (error) {
@@ -182,10 +182,10 @@ async function updateMap(tsMax, live = true) {
   }
 }
 
-function updateTimestampLive(latestTs) {
-  const minutesAgo = Math.floor((Date.now() - latestTs * 1000) / 60000);
+function updateTimestampLive(tsMax) {
+  const minutesAgo = Math.floor((Date.now() - tsMax * 1000) / 60000);
   document.getElementById(timestampIndicatorId).innerText =
-    `Latest ping: ${timeAgo(latestTs)}`;
+    `Latest ping: ${timeAgo(tsMax)}`;
 }
 
 function drawTracks(tracks) {
