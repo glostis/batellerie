@@ -1,5 +1,11 @@
 import { midToFlag } from "./flags.js";
 
+const timestampIndicatorId = "timestamp-indicator";
+const datetimePickerId = "datetime-picker";
+const darkThemeClass = "dark-theme";
+const darkTheme = "dark";
+const lightTheme = "light";
+
 // ##################
 // Map Initialization
 // ##################
@@ -9,11 +15,13 @@ const layerGroup = L.layerGroup().addTo(map);
 
 let intervalId = setInterval(updateMap, 30000);
 let waybackMode = false;
-let currentTheme = localStorage.getItem("mapTheme") || "light";
+let currentTheme = localStorage.getItem("mapTheme") || lightTheme;
 let protomapLayer = createProtomapsLayer(currentTheme).addTo(map);
+if (currentTheme == darkTheme) document.body.classList.add(darkThemeClass);
 
 map.addControl(new L.Control.Fullscreen());
 addThemeToggleControl();
+addTimestampIndicator();
 addCascadeButtons();
 addDatetimePickerControl();
 
@@ -51,15 +59,17 @@ function createToggleControl() {
 }
 
 function toggleTheme() {
-  currentTheme = currentTheme === "dark" ? "light" : "dark";
+  currentTheme = currentTheme === darkTheme ? lightTheme : darkTheme;
   localStorage.setItem("mapTheme", currentTheme);
+
+  document.body.classList.toggle(darkThemeClass);
 
   map.removeLayer(protomapLayer);
   protomapLayer = createProtomapsLayer(currentTheme).addTo(map);
 }
 
 function addDatetimePickerControl() {
-  const waybackDatetimePicker = L.control({ position: "topleft" });
+  const waybackDatetimePicker = L.control({ position: "topright" });
   waybackDatetimePicker.onAdd = () => createDatetimePicker();
   waybackDatetimePicker.addTo(map);
 }
@@ -68,11 +78,11 @@ function createDatetimePicker() {
   const div = L.DomUtil.create("div", "leaflet-bar leaflet-control");
   const datetimePicker = L.DomUtil.create("input", "", div);
   datetimePicker.type = "datetime-local";
-  datetimePicker.id = "datetime";
+  datetimePicker.id = datetimePickerId;
   datetimePicker.style.display = "none";
   datetimePicker.addEventListener("change", async (event) => {
     // Get the input value
-    const datetimeInput = document.getElementById("datetime").value;
+    const datetimeInput = document.getElementById(datetimePickerId).value;
 
     // Convert the input to an epoch timestamp
     const epochTimestamp = new Date(datetimeInput).getTime() / 1000;
@@ -83,7 +93,7 @@ function createDatetimePicker() {
     }
 
     updateMap(epochTimestamp, false);
-    document.getElementById("timestamp").innerText =
+    document.getElementById(timestampIndicatorId).innerText =
       `${timeAgo(epochTimestamp)}`;
   });
   return div;
@@ -98,22 +108,22 @@ function addCascadeButtons() {
         items: createTimeTravelButtons(),
       },
     ],
-    { position: "topleft", direction: "vertical" },
+    { position: "topright", direction: "vertical" },
   ).addTo(map);
 }
 
 function createTimeTravelButtons() {
   return [
-    { icon: "fas fa-backward-fast", command: () => timeTravel(-15) },
-    { icon: "fas fa-backward-step", command: () => timeTravel(-5) },
-    { icon: "fas fa-forward-step", command: () => timeTravel(5) },
     { icon: "fas fa-forward-fast", command: () => timeTravel(15) },
+    { icon: "fas fa-forward-step", command: () => timeTravel(5) },
+    { icon: "fas fa-backward-step", command: () => timeTravel(-5) },
+    { icon: "fas fa-backward-fast", command: () => timeTravel(-15) },
   ];
 }
 
 function toggleWaybackMode() {
   waybackMode = !waybackMode;
-  const datetimeElement = document.getElementById("datetime");
+  const datetimeElement = document.getElementById(datetimePickerId);
   datetimeElement.style.display = waybackMode ? "block" : "none";
 
   if (waybackMode) {
@@ -127,7 +137,7 @@ function toggleWaybackMode() {
 }
 
 function timeTravel(minutes) {
-  const datetimeElement = document.getElementById("datetime");
+  const datetimeElement = document.getElementById(datetimePickerId);
   const newTime = new Date(
     new Date(datetimeElement.value).getTime() + minutes * 60000,
   );
@@ -136,6 +146,18 @@ function timeTravel(minutes) {
   datetimeElement.dispatchEvent(
     new Event("change", { bubbles: true, cancelable: true }),
   );
+}
+
+function addTimestampIndicator() {
+  const timeStampIndicator = L.control({ position: "topright" });
+  timeStampIndicator.onAdd = () => {
+    const div = L.DomUtil.create("div", "leaflet-bar leaflet-control");
+    const indicator = L.DomUtil.create("div", "leaflet-control-div", div);
+    indicator.id = timestampIndicatorId;
+    indicator.innerText = "Fetching data…";
+    return div;
+  };
+  timeStampIndicator.addTo(map);
 }
 
 // ######################
@@ -160,7 +182,7 @@ async function updateMap(tsMax, live = true) {
 
 function updateTimestampLive(latestTs) {
   const minutesAgo = Math.floor((Date.now() - latestTs * 1000) / 60000);
-  document.getElementById("timestamp").innerText =
+  document.getElementById(timestampIndicatorId).innerText =
     `Latest ping: ${timeAgo(latestTs)}`;
 }
 

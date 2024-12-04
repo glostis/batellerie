@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Bateaux sur l’eau…</title>
-    <link rel="icon" type="image/svg+xml" href="./static/favicon.svg">
+    <link rel="icon" type="image/svg+xml" href="./static/favicon.svg" />
     <link rel="stylesheet" href="./static/L.cascadeButtons.css" />
     <link
       rel="stylesheet"
@@ -34,35 +34,43 @@
         height: 100%;
       }
 
+      body.dark-theme,
+      body.dark-theme #map,
+      body.dark-theme .leaflet-control a,
+      body.dark-theme .leaflet-control input,
+      body.dark-theme .leaflet-control button,
+      body.dark-theme .leaflet-control-div,
+      body.dark-theme .leaflet-control-attribution,
+      body.dark-theme .leaflet-popup-content-wrapper,
+      body.dark-theme .leaflet-popup-tip,
+      body.dark-theme .leaflet-tooltip {
+        background-color: rgb(52, 52, 52);
+        /* For +/- sign */
+        border-bottom-color: rgb(80, 80, 80);
+        /* For tooltips with ship names */
+        border-color: rgb(80, 80, 80);
+        color: white;
+      }
+      /* Small arrow at end of tooltip */
+      body.dark-theme .leaflet-tooltip:before {
+        border-left-color: rgb(80, 80, 80);
+      }
+
       /* Empty CSS class to wipe any default icon styling */
       .arrow-icon {
       }
 
-      #timestamp {
-        position: absolute;
-        top: 10px;
-        right: 10px;
+      .leaflet-control-div {
         background: rgba(255, 255, 255, 0.8);
         padding: 5px 10px;
         border-radius: 5px;
         font-size: 14px;
         box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.2);
-        z-index: 1000;
-      }
-
-      #wayback-button {
-        display: block; /* Ensure the link can have a background */
-        background-image: url("static/wayback.svg");
-        background-size: 75% 75%;
-        background-position: center;
-        background-repeat: no-repeat;
-        text-decoration: none; /* Remove underline */
       }
     </style>
   </head>
   <body>
     <div id="map"></div>
-    <div id="timestamp">Loading latest timestamp...</div>
     <script src="./static/L.cascadeButtons.js"></script>
     <script type="module" src="static/main.js"></script>
   </body>
