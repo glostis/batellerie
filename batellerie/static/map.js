@@ -170,7 +170,7 @@ function addTimestampIndicator() {
 // ######################
 
 async function updateMap(tsMax, live = true) {
-  const apiRoute = tsMax ? `/data?tsMax=${tsMax}` : `/data`;
+  const apiRoute = tsMax ? `/data/map?tsMax=${tsMax}` : `/data/map`;
   try {
     const response = await fetch(apiRoute).then((res) => res.json());
     const { positions, tracks, tsMax, tsMin } = response;

@@ -1,7 +1,7 @@
 import json
 import os
 
-from flask import Flask, Response, render_template, request
+from flask import Flask, Response, redirect, render_template, request
 from pyais.constants import NavigationStatus, ShipType
 
 from batellerie import DB_PATH, TABLE_NAME, duckdb_connect
@@ -139,7 +139,7 @@ def fetch_all_the_things(ts_max: str | None = None, ts_min: str | None = None):
     }
 
 
-@app.route("/data")
+@app.route("/data/map")
 def data() -> Response:
     ts_max = request.args.get("tsMax", None)
     ts_min = request.args.get("tsMin", None)
@@ -148,7 +148,12 @@ def data() -> Response:
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return redirect("/map")
+
+
+@app.route("/map")
+def map():
+    return render_template("map.html")
 
 
 if __name__ == "__main__":
