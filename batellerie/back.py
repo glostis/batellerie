@@ -5,6 +5,7 @@ from time import sleep, time
 
 import pandas as pd
 from pyais import NMEAMessage
+from pyais.exceptions import UnknownMessageException
 from pyais.stream import UDPReceiver
 
 from batellerie import DB_PATH, TABLE_NAME, TXT_PATH, UDP_HOST_LISTEN, UDP_PORT_LISTEN, duckdb_connect
@@ -59,6 +60,13 @@ def store():
         with open(p, "a") as f:
             f.write(f"{current_id} {int(time())} {msg.raw}\n")
         current_id += 1
+
+
+def parse_message(binary_message):
+    d = NMEAMessage.from_string(nmea_str=binary_message).decode().asdict()
+    d.pop("spare_1", None)
+    d.pop("data", None)
+    return d
 
 
 def sync():
@@ -140,12 +148,13 @@ def sync():
             id_, ts, binary_message = line.split(" ")
             id_ = int(id_)
             if id_ > max_id:
-                d = NMEAMessage.from_string(nmea_str=binary_message).decode().asdict()
-                d["ts"] = int(ts)
-                d["id"] = id_
-                d.pop("spare_1", None)
-                d.pop("data", None)
-                parsed_messages.append(d)
+                try:
+                    parsed_message = parse_message(binary_message)
+                    parsed_message["ts"] = int(ts)
+                    parsed_message["id"] = id_
+                    parsed_messages.append(parsed_message)
+                except UnknownMessageException:
+                    pass
             else:
                 break
 
