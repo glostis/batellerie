@@ -161,6 +161,9 @@ def sync():
         if parsed_messages:
             df = pd.DataFrame(parsed_messages)
             print(f"Inserting {len(df)} rows")
+            # Dirty way to handle corrupted data
+            if "turn" in df:
+                df = df[df["turn"].isna() | ((df["turn"] <= 127) & (df["turn"] >= -128))]
             with duckdb_connect(DB_PATH) as con:
                 con.execute(f"INSERT INTO {TABLE_NAME} BY NAME SELECT * FROM df")
 
