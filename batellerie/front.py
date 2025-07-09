@@ -238,7 +238,7 @@ def get_totals():
 
 @app.template_filter("format_number")
 def format_number(value):
-    return "{:,}".replace(",", " ").format(value)
+    return f"{value:,}".replace(",", " ")
 
 
 @app.route("/stats")
