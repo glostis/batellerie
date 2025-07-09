@@ -14,7 +14,7 @@ const endColor = hexToRgb("#F8591F");
 // ##################
 const map = L.map("map", { minZoom: 12 })
   .setView([49.44, 2.83], 12)
-  .setMaxBounds(L.latLngBounds(L.latLng(49.25, 2.6), L.latLng(49.55, 3.1)));
+  .setMaxBounds(L.latLngBounds(L.latLng(49.15, 2.5), L.latLng(49.55, 3.1)));
 
 const layerGroup = L.layerGroup().addTo(map);
 
@@ -119,10 +119,36 @@ function addCascadeButtons() {
 
 function createTimeTravelButtons() {
   return [
-    { icon: "fas fa-forward-fast", command: () => timeTravel(15) },
-    { icon: "fas fa-forward-step", command: () => timeTravel(5) },
-    { icon: "fas fa-backward-step", command: () => timeTravel(-5) },
-    { icon: "fas fa-backward-fast", command: () => timeTravel(-15) },
+    {
+      icon: "fas fa-circle-right",
+      title: "+1 day",
+      command: () => dayChange(1),
+    },
+    {
+      icon: "fas fa-forward-fast",
+      title: "+15 minutes",
+      command: () => timeTravelRelative(15),
+    },
+    {
+      icon: "fas fa-forward-step",
+      title: "+5 minutes",
+      command: () => timeTravelRelative(5),
+    },
+    {
+      icon: "fas fa-backward-step",
+      title: "-5 minutes",
+      command: () => timeTravelRelative(-5),
+    },
+    {
+      icon: "fas fa-backward-fast",
+      title: "-15 minutes",
+      command: () => timeTravelRelative(-15),
+    },
+    {
+      icon: "fas fa-circle-left",
+      title: "-1 day",
+      command: () => dayChange(-1),
+    },
   ];
 }
 
@@ -141,11 +167,27 @@ function toggleWaybackMode() {
   }
 }
 
-function timeTravel(minutes) {
+function timeTravelRelative(minutes) {
   const datetimeElement = document.getElementById(datetimePickerId);
   const newTime = new Date(
     new Date(datetimeElement.value).getTime() + minutes * 60000,
   );
+  datetimeElement.value = dateToFullString(newTime);
+
+  datetimeElement.dispatchEvent(
+    new Event("change", { bubbles: true, cancelable: true }),
+  );
+  return newTime;
+}
+
+function dayChange(days) {
+  let newTime = timeTravelRelative(days * 24 * 60);
+  renderTripsTable(newTime);
+}
+
+function timeTravelAbsolute(ts) {
+  const datetimeElement = document.getElementById(datetimePickerId);
+  const newTime = new Date(ts * 1000);
   datetimeElement.value = dateToFullString(newTime);
 
   datetimeElement.dispatchEvent(
@@ -289,11 +331,15 @@ function dateToTimeString(date) {
   return `${hours}:${minutes}`;
 }
 
-function dateToFullString(date) {
+function dateToDateString(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0"); // Months are zero-based
   const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}T${dateToTimeString(date)}`;
+  return `${year}-${month}-${day}`;
+}
+
+function dateToFullString(date) {
+  return `${dateToDateString(date)}T${dateToTimeString(date)}`;
 }
 
 function timeAgo(timestampSeconds) {
@@ -304,6 +350,38 @@ function timeAgo(timestampSeconds) {
   if (hours < 24)
     return `${hours} hour${hours > 1 ? "s" : ""} ago (${dateToTimeString(new Date(timestampSeconds * 1000))})`;
   return dateToFullString(new Date(timestampSeconds * 1000)).replace("T", " ");
+}
+
+function timeFormatter(row, cell, value, columnDef, dataContext) {
+  return `${dateToTimeString(new Date(value * 1000))} - ${dateToTimeString(new Date((value + dataContext.duration) * 1000))}`;
+}
+
+function durationFormatter(row, cell, value, columnDef, dataContext) {
+  let seconds = value;
+  if (
+    typeof seconds !== "number" ||
+    isNaN(seconds) ||
+    !Number.isInteger(seconds)
+  ) {
+    throw new Error("Input must be an integer");
+  }
+
+  if (seconds < 0) {
+    throw new Error("Input must be a non-negative integer");
+  }
+
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+
+  // Pad the hours and minutes with leading zeros if necessary
+  const paddedHours = hours.toString().padStart(2, "0");
+  const paddedMinutes = minutes.toString().padStart(2, "0");
+
+  return `${paddedHours}:${paddedMinutes}`;
+}
+
+function dimensionsFormatter(row, cell, value, columnDef, dataContext) {
+  return `${dataContext.length} × ${dataContext.width}m`;
 }
 
 function interpolateColor(color1, color2, factor) {
@@ -317,3 +395,99 @@ function hexToRgb(hex) {
 
 // Initial Map Update
 updateMap();
+renderTripsTable();
+
+// Fetch data from Flask API
+async function renderTripsTable(date) {
+  if (date == null) date = Date.now();
+
+  // Get today's date at midnight
+  let tsMin = new Date(date);
+  tsMin.setHours(0, 0, 0, 0);
+  let tsMax = new Date(date);
+  tsMax.setHours(23, 59, 59, 0);
+  tsMin = Math.floor(tsMin.getTime() / 1000);
+  tsMax = Math.floor(tsMax.getTime() / 1000);
+
+  fetch(`/data/trips?tsMin=${tsMin}&tsMax=${tsMax}`)
+    .then((response) => response.json())
+    .then((data) => {
+      const columns = [
+        {
+          id: "shipname",
+          name: "Name",
+          field: "shipname",
+          sortable: true,
+        },
+        {
+          id: "dimensions",
+          name: "Dimensions",
+          formatter: dimensionsFormatter,
+        },
+        {
+          id: "timestamp",
+          name: "Time",
+          field: "min_ts",
+          sortable: true,
+          formatter: timeFormatter,
+        },
+        {
+          id: "duration",
+          name: "Duration",
+          field: "duration",
+          sortable: true,
+          formatter: durationFormatter,
+        },
+      ];
+
+      // SlickGrid options
+      const options = {
+        enableCellNavigation: true,
+        editable: false,
+        autoEdit: false,
+        fullWidthRows: true,
+        forceFitColumns: true,
+      };
+
+      // Create the SlickGrid instance
+      const grid = new Slick.Grid("#tripsTable", data, columns, options);
+
+      // Add sorting functionality
+      grid.onSort.subscribe((e, args) => {
+        const { sortCol, sortAsc } = args;
+        data.sort((a, b) => {
+          const aValue = a[sortCol.field];
+          const bValue = b[sortCol.field];
+          return (
+            (aValue === bValue ? 0 : aValue > bValue ? 1 : -1) *
+            (sortAsc ? 1 : -1)
+          );
+        });
+        grid.invalidateAllRows();
+        grid.render();
+      });
+
+      grid.onClick.subscribe(function (e, args) {
+        var item = args.grid.getData()[args.row];
+        timeTravelAbsolute(item.min_ts);
+      });
+    });
+}
+
+// Toggle table functionality
+const toggleButton = document.getElementById("toggle-button");
+const tripsContainer = document.getElementById("tripsContainer");
+
+let tableVisible = false;
+
+toggleButton.addEventListener("click", () => {
+  tableVisible = !tableVisible;
+  tripsContainer.style.bottom = tableVisible ? "0" : "-33%";
+  toggleButton.textContent = tableVisible ? "⬇" : "⬆";
+  if (tableVisible) {
+    const button = document.querySelector(".fa-clock-rotate-left");
+    if (!button.classList.contains("activeButton")) {
+      button.click();
+    }
+  }
+});

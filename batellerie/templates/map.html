@@ -13,6 +13,11 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/protomaps-leaflet@4.0.1/dist/protomaps-leaflet.js"></script>
     <script src="https://api.mapbox.com/mapbox.js/plugins/leaflet-fullscreen/v1.0.1/Leaflet.fullscreen.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/slickgrid@5.14.0/dist/browser/slick.core.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/slickgrid@5.14.0/dist/browser/slick.interactions.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/slickgrid@5.14.0/dist/browser/slick.formatters.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/slickgrid@5.14.0/dist/browser/slick.grid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs/Sortable.min.js"></script>
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
@@ -24,11 +29,16 @@
       href="https://api.mapbox.com/mapbox.js/plugins/leaflet-fullscreen/v1.0.1/leaflet.fullscreen.css"
       rel="stylesheet"
     />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/slickgrid@5.14.0/dist/styles/css/slick-alpine-theme.min.css"
+    />
     <style>
       html,
       body {
         height: 100%;
         margin: 0;
+        overflow: hidden;
       }
       #map {
         height: 100%;
@@ -67,10 +77,52 @@
         font-size: 14px;
         box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.2);
       }
+
+      #tripsContainer {
+        position: fixed;
+        bottom: -33%;
+        left: 0;
+        width: 100%;
+        height: 33%;
+        background-color: white;
+        overflow-y: auto;
+        box-shadow: 0px -4px 10px rgba(0, 0, 0, 0.2);
+        transition: bottom 0.3s ease-in-out;
+        z-index: 1000;
+      }
+      #tripsTable {
+        z-index: 2000;
+        /* Width and height need to be set, otherwise the table will not be displayed */
+        /* https://stackoverflow.com/questions/18020959/slickgrid-data-not-visible/18025554 */
+        width: 100%;
+        height: 100%;
+      }
+      #toggle-button {
+        position: fixed;
+        bottom: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 50px;
+        height: 30px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        z-index: 1001;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+      }
     </style>
   </head>
   <body>
     <div id="map"></div>
+    <button id="toggle-button">⬆</button>
+    <div id="tripsContainer">
+      <div id="tripsTable"></div>
+    </div>
     <script src="./static/L.cascadeButtons.js"></script>
     <script type="module" src="static/map.js"></script>
   </body>

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Interactive Chart</title>
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+      }
+      table,
+      th,
+      td {
+        border: 1px solid black;
+      }
+      th,
+      td {
+        text-align: center;
+        padding: 8px;
+      }
+      th {
+        background-color: #f2f2f2;
+      }
+    </style>
+  </head>
+  <body>
+    <table>
+      <thead>
+        <tr>
+          <th>Time range</th>
+          <th># distinct ships</th>
+          <th># trips</th>
+          <th># AIS messages</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for total in totals %}
+        <tr>
+          <td>{{ total.time_range }}</td>
+          <td>{{ total.nb_ships | format_number }}</td>
+          <td>{{ total.nb_trips | format_number }}</td>
+          <td>{{ total.nb_messages | format_number }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div id="chart"></div>
+
+    <script>
+      // Load the chart JSON passed from Flask
+      const chartSpec = {{ chart_json|safe }};
+
+      // Embed the chart in the div
+      vegaEmbed('#chart', chartSpec).catch(console.error);
+    </script>
+  </body>
+</html>
