@@ -236,6 +236,11 @@ def get_totals():
     return totals
 
 
+@app.template_filter("format_number")
+def format_number(value):
+    return "{:,}".replace(",", " ").format(value)
+
+
 @app.route("/stats")
 def stats():
     chart_json = create_chart()
