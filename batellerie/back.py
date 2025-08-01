@@ -85,6 +85,7 @@ def sync():
                 accuracy BOOLEAN,
                 lon DOUBLE,
                 lat DOUBLE,
+                alt INTEGER, -- Altitude is broadcast by SAR aircraft in type 9 messages
                 course DECIMAL(4, 1),
                 heading DECIMAL(4, 1),
                 second UTINYINT,
