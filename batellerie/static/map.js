@@ -37,7 +37,7 @@ addDatetimePickerControl();
 function createProtomapsLayer(theme) {
   return protomapsL.leafletLayer({
     url: "static/map.pmtiles",
-    theme,
+    flavor: theme,
   });
 }
 

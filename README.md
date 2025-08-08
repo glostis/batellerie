@@ -59,10 +59,8 @@ AIS data is stored to `./batellerie/data/messages.(txt|db)`.
 
 The map base layer is provided as a single static file `./batellerie/static/map.pmtiles` thanks to
 [protomaps](https://protomaps.com/).
-It can be created using the following command[^1]:
+It can be created using the following command:
 
 ```bash
-pmtiles extract https://build.protomaps.com/20240812.pmtiles static/map.pmtiles --bbox 2.6,49.25,3.1,49.55
+pmtiles extract https://build.protomaps.com/20250804.pmtiles static/map.pmtiles --bbox 2.6,49.25,3.1,49.55
 ```
-
-[^1]: [Protomaps v4 is not (yet?) supported by protomaps-leaflet](https://github.com/protomaps/protomaps-leaflet/issues/177), so we stick to the latest v3 basemap available:
