@@ -21,19 +21,14 @@ services:
   front:
     image: batellerie
     build: ./
-    ports:
-        - 8082:5000
     volumes:
       - ./data:/data/
     command: python -m batellerie.front
-    environment:
-      - VIRTUAL_HOST
-      - LETSENCRYPT_HOST
-      - LETSENCRYPT_EMAIL
     restart: unless-stopped
-    networks:
-      - nginx-proxy
-
-networks:
-  nginx-proxy:
-    external: true
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.batellerie.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.services.batellerie.loadbalancer.server.port=5000"
+      - "traefik.http.routers.batellerie.entrypoints=websecure"
+      - "traefik.http.routers.batellerie.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.batellerie.tls=true"
